@@ -1,8 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"path/filepath"
 	"reflect"
 
+	"github.com/adrg/xdg"
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/pkg/errors"
 )
 
@@ -18,6 +24,49 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
+	DBPath                         string
+	AllowOverlappingCompaction     *bool
+	EnableMemorySnapshotOnShutdown *bool
+	BodySizeLimit                  int64
+	// More than this many samples post metric-relabeling will cause the scrape to fail. 0 means no limit.
+	SampleLimit int
+	// More than this many buckets in a native histogram will cause the scrape to fail.
+	BucketLimit int
+	// Indicator whether the scraped timestamps should be respected.
+	HonorTimestamps *bool
+	// Option to enable the experimental in-memory metadata storage and append metadata to the WAL.
+	EnableMetadataStorage *bool
+}
+
+func (c *configuration) SetDefaults() {
+	if c.DBPath == "" {
+		c.DBPath = filepath.Join(xdg.DataHome, PluginName, "data")
+	}
+	if c.AllowOverlappingCompaction == nil {
+		c.AllowOverlappingCompaction = model.NewBool(true)
+	}
+	if c.EnableMemorySnapshotOnShutdown == nil {
+		c.EnableMemorySnapshotOnShutdown = model.NewBool(true)
+	}
+	if c.BodySizeLimit <= 0 {
+		c.BodySizeLimit = 10000000
+	}
+	if c.SampleLimit < 0 {
+		c.SampleLimit = 0
+	}
+	if c.BucketLimit < 0 {
+		c.BucketLimit = 0
+	}
+	if c.HonorTimestamps == nil {
+		c.HonorTimestamps = model.NewBool(true)
+	}
+	if c.EnableMetadataStorage == nil {
+		c.EnableMetadataStorage = model.NewBool(true)
+	}
+}
+
+func (c *configuration) IsValid() error {
+	return nil
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -31,15 +80,21 @@ func (c *configuration) Clone() *configuration {
 // concurrently. The active configuration may change underneath the client of this method, but
 // the struct returned by this API call is considered immutable.
 func (p *Plugin) getConfiguration() *configuration {
-	p.configurationLock.RLock()
-	defer p.configurationLock.RUnlock()
+	p.configurationLock.Lock()
+	defer p.configurationLock.Unlock()
 
 	if p.configuration == nil {
-		return &configuration{}
+		p.configuration = new(configuration)
+		p.configuration.SetDefaults()
 	}
 
-	return p.configuration
+	return p.configuration.Clone()
 }
+
+// func (p *Plugin) saveConfiguration() error {
+// 	p.API.SavePluginConfig()
+// 	return nil
+// }
 
 // setConfiguration replaces the active configuration under lock.
 //
@@ -50,7 +105,7 @@ func (p *Plugin) getConfiguration() *configuration {
 // This method panics if setConfiguration is called with the existing configuration. This almost
 // certainly means that the configuration was modified without being cloned and may result in
 // an unsafe access.
-func (p *Plugin) setConfiguration(configuration *configuration) {
+func (p *Plugin) setConfiguration(configuration *configuration) error {
 	p.configurationLock.Lock()
 	defer p.configurationLock.Unlock()
 
@@ -59,25 +114,89 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 		// allocation for same to point at the same memory address, breaking the check
 		// above.
 		if reflect.ValueOf(*configuration).NumField() == 0 {
-			return
+			return nil
 		}
 
-		panic("setConfiguration called with the existing configuration")
+		return errors.New("setConfiguration called with the existing configuration")
+	}
+
+	if err := configuration.IsValid(); err != nil {
+		return fmt.Errorf("setConfiguration: configuration is not valid: %w", err)
 	}
 
 	p.configuration = configuration
+
+	return nil
 }
 
 // OnConfigurationChange is invoked when configuration changes may have been made.
 func (p *Plugin) OnConfigurationChange() error {
-	var configuration = new(configuration)
-
-	// Load the public configuration fields from the Mattermost server configuration.
-	if err := p.API.LoadPluginConfiguration(configuration); err != nil {
-		return errors.Wrap(err, "failed to load plugin configuration")
+	serverConfig := p.API.GetConfig()
+	if serverConfig == nil {
+		p.API.LogError("OnConfigurationChange: failed to get server config")
 	}
 
-	p.setConfiguration(configuration)
+	if err := p.loadConfig(); err != nil {
+		return fmt.Errorf("OnConfigurationChange: failed to load config: %w", err)
+	}
 
 	return nil
+}
+
+func (p *Plugin) loadConfig() error {
+	cfg := new(configuration)
+
+	// Load the public configuration fields from the Mattermost server configuration.
+	if err := p.API.LoadPluginConfiguration(cfg); err != nil {
+		return fmt.Errorf("loadConfig: failed to load plugin configuration: %w", err)
+	}
+
+	// Set defaults in case anything is missing.
+	cfg.SetDefaults()
+
+	return p.setConfiguration(cfg)
+}
+
+func (p *Plugin) ConfigurationWillBeSaved(newCfg *model.Config) (*model.Config, error) {
+	if newCfg == nil {
+		p.API.LogWarn("newCfg should not be nil")
+		return nil, nil
+	}
+
+	configData := newCfg.PluginSettings.Plugins[PluginName]
+
+	js, err := json.Marshal(configData)
+	if err != nil {
+		p.API.LogError("failed to marshal config data", "error", err.Error())
+		return nil, nil
+	}
+
+	var cfg configuration
+	if err := json.Unmarshal(js, &cfg); err != nil {
+		p.API.LogError("failed to unmarshal config data", "error", err.Error())
+		return nil, nil
+	}
+
+	// Setting defaults prevents errors in case the plugin is updated after a new
+	// setting has been added. In this case the default value will be used.
+	cfg.SetDefaults()
+
+	if err := cfg.IsValid(); err != nil {
+		appErr := model.NewAppError("saveConfig", "app.save_config.error", nil, "", http.StatusBadRequest)
+		appErr.Message = err.Error()
+		appErr.SkipTranslation = true
+		return nil, appErr
+	}
+
+	return nil, nil
+}
+
+func (p *Plugin) isHA() bool {
+	cfg := p.API.GetConfig()
+
+	if cfg == nil {
+		return false
+	}
+
+	return cfg.ClusterSettings.Enable != nil && *cfg.ClusterSettings.Enable
 }
