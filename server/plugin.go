@@ -63,7 +63,7 @@ func (p *Plugin) OnActivate() error {
 	// initiate local tsdb
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
-	p.db, err = tsdb.Open(p.configuration.DBPath, logger, nil, &tsdb.Options{
+	p.db, err = tsdb.Open(*p.configuration.DBPath, logger, nil, &tsdb.Options{
 		RetentionDuration:              int64(30 * 24 * time.Hour / time.Millisecond),
 		AllowOverlappingCompaction:     *p.configuration.AllowOverlappingCompaction,
 		EnableMemorySnapshotOnShutdown: *p.configuration.EnableMemorySnapshotOnShutdown,

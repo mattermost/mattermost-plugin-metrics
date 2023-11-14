@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/adrg/xdg"
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/pkg/errors"
 )
@@ -24,14 +23,14 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	DBPath                         string
+	DBPath                         *string
 	AllowOverlappingCompaction     *bool
 	EnableMemorySnapshotOnShutdown *bool
-	BodySizeLimit                  int64
+	BodySizeLimitBytes             *int64
 	// More than this many samples post metric-relabeling will cause the scrape to fail. 0 means no limit.
-	SampleLimit int
+	SampleLimit *int
 	// More than this many buckets in a native histogram will cause the scrape to fail.
-	BucketLimit int
+	BucketLimit *int
 	// Indicator whether the scraped timestamps should be respected.
 	HonorTimestamps *bool
 	// Option to enable the experimental in-memory metadata storage and append metadata to the WAL.
@@ -39,8 +38,8 @@ type configuration struct {
 }
 
 func (c *configuration) SetDefaults() {
-	if c.DBPath == "" {
-		c.DBPath = filepath.Join(xdg.DataHome, PluginName, "data")
+	if c.DBPath == nil {
+		c.DBPath = model.NewString(filepath.Join(PluginName, "data"))
 	}
 	if c.AllowOverlappingCompaction == nil {
 		c.AllowOverlappingCompaction = model.NewBool(true)
@@ -48,14 +47,14 @@ func (c *configuration) SetDefaults() {
 	if c.EnableMemorySnapshotOnShutdown == nil {
 		c.EnableMemorySnapshotOnShutdown = model.NewBool(true)
 	}
-	if c.BodySizeLimit <= 0 {
-		c.BodySizeLimit = 10000000
+	if c.BodySizeLimitBytes == nil {
+		c.BodySizeLimitBytes = model.NewInt64(10000000)
 	}
-	if c.SampleLimit < 0 {
-		c.SampleLimit = 0
+	if c.SampleLimit == nil {
+		c.SampleLimit = model.NewInt(0)
 	}
-	if c.BucketLimit < 0 {
-		c.BucketLimit = 0
+	if c.BucketLimit == nil {
+		c.BucketLimit = model.NewInt(0)
 	}
 	if c.HonorTimestamps == nil {
 		c.HonorTimestamps = model.NewBool(true)
