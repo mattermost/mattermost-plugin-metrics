@@ -67,8 +67,7 @@ func (c *configuration) IsValid() error {
 	return nil
 }
 
-// Clone deep copies the configuration. Your implementation may require a deep copy if
-// your configuration has reference types.
+// Clone deep copies the configuration.
 func (c *configuration) Clone() (*configuration, error) {
 	b, err := json.Marshal(c)
 	if err != nil {
