@@ -55,7 +55,7 @@ func (m *metricsLogger) Log(items ...any) error {
 	}
 
 	// we get the message and then remove the key value pair from the items slice
-	// then the removedd items will still be added to the list
+	// then the removed items will still be added to the list
 	msg := items[msgIndex+1]
 	kvps := slices.Delete[[]any](items, msgIndex, msgIndex+2)
 	logFn := m.api.LogInfo

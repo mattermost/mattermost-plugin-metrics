@@ -15,9 +15,13 @@ func TestLog(t *testing.T) {
 	ml := mocks.NewMockLogger(ctrl)
 	lg := &metricsLogger{api: ml}
 
-	t.Run("should not panic on a single line", func(t *testing.T) {
+	t.Run("should not panic on a single line or empty line", func(t *testing.T) {
 		ml.EXPECT().LogInfo("test")
 		err := lg.Log("test")
+		require.NoError(t, err)
+
+		ml.EXPECT().LogInfo("")
+		err = lg.Log("")
 		require.NoError(t, err)
 	})
 	t.Run("generate info log", func(t *testing.T) {
@@ -35,6 +39,12 @@ func TestLog(t *testing.T) {
 	t.Run("shuffle order on error log", func(t *testing.T) {
 		ml.EXPECT().LogError("a log")
 		err := lg.Log("level", "error", "msg", "a log")
+		require.NoError(t, err)
+	})
+
+	t.Run("more fields with warning", func(t *testing.T) {
+		ml.EXPECT().LogWarn("test", "mint", 1698926412248, "ulid", "01HE949VD3YTRWF8GXT2TC97KJ")
+		err := lg.Log("mint", 1698926412248, "ulid", "01HE949VD3YTRWF8GXT2TC97KJ", "msg", "test", "level", "warn")
 		require.NoError(t, err)
 	})
 }
