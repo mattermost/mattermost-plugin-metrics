@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mattermost/mattermost-plugin-metrics/server/mocks"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -16,20 +17,24 @@ func TestLog(t *testing.T) {
 
 	t.Run("should not panic on a single line", func(t *testing.T) {
 		ml.EXPECT().LogInfo("test")
-		lg.Log("test")
+		err := lg.Log("test")
+		require.NoError(t, err)
 	})
 	t.Run("generate info log", func(t *testing.T) {
 		ml.EXPECT().LogInfo("a log")
-		lg.Log("msg", "a log", "level", "info")
+		err := lg.Log("msg", "a log", "level", "info")
+		require.NoError(t, err)
 	})
 
 	t.Run("generate error log", func(t *testing.T) {
 		ml.EXPECT().LogError("a log")
-		lg.Log("msg", "a log", "level", "error")
+		err := lg.Log("msg", "a log", "level", "error")
+		require.NoError(t, err)
 	})
 
 	t.Run("shuffle order on error log", func(t *testing.T) {
 		ml.EXPECT().LogError("a log")
-		lg.Log("level", "error", "msg", "a log")
+		err := lg.Log("level", "error", "msg", "a log")
+		require.NoError(t, err)
 	})
 }

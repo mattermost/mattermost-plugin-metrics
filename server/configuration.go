@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"reflect"
 
@@ -68,17 +67,26 @@ func (c *configuration) IsValid() error {
 	return nil
 }
 
-// Clone shallow copies the configuration. Your implementation may require a deep copy if
+// Clone deep copies the configuration. Your implementation may require a deep copy if
 // your configuration has reference types.
-func (c *configuration) Clone() *configuration {
-	var clone = *c
-	return &clone
+func (c *configuration) Clone() (*configuration, error) {
+	b, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+
+	clone := configuration{}
+	if err = json.Unmarshal(b, &clone); err != nil {
+		return nil, err
+	}
+
+	return &clone, nil
 }
 
 // getConfiguration retrieves the active configuration under lock, making it safe to use
 // concurrently. The active configuration may change underneath the client of this method, but
 // the struct returned by this API call is considered immutable.
-func (p *Plugin) getConfiguration() *configuration {
+func (p *Plugin) getConfiguration() (*configuration, error) {
 	p.configurationLock.Lock()
 	defer p.configurationLock.Unlock()
 
@@ -181,10 +189,7 @@ func (p *Plugin) ConfigurationWillBeSaved(newCfg *model.Config) (*model.Config, 
 	cfg.SetDefaults()
 
 	if err := cfg.IsValid(); err != nil {
-		appErr := model.NewAppError("saveConfig", "app.save_config.error", nil, "", http.StatusBadRequest)
-		appErr.Message = err.Error()
-		appErr.SkipTranslation = true
-		return nil, appErr
+		return nil, err
 	}
 
 	return nil, nil
