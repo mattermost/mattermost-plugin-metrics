@@ -34,6 +34,10 @@ type configuration struct {
 	HonorTimestamps *bool
 	// Option to enable the experimental in-memory metadata storage and append metadata to the WAL.
 	EnableMetadataStorage *bool
+	// Scrape interval is the time between polling the /metrics endpoint
+	ScrapeIntervalSeconds *int
+	// Screap timeout tells scraper to give up on the poll for a single scrape attempt
+	ScrapeTimeoutSeconds *int
 }
 
 func (c *configuration) SetDefaults() {
@@ -61,9 +65,24 @@ func (c *configuration) SetDefaults() {
 	if c.EnableMetadataStorage == nil {
 		c.EnableMetadataStorage = model.NewBool(true)
 	}
+	if c.ScrapeIntervalSeconds == nil {
+		c.ScrapeIntervalSeconds = model.NewInt(60)
+	}
+	if c.ScrapeTimeoutSeconds == nil {
+		c.ScrapeTimeoutSeconds = model.NewInt(10)
+	}
 }
 
 func (c *configuration) IsValid() error {
+	if *c.ScrapeIntervalSeconds < 1 {
+		return errors.New("scrape interval should be greater than zero")
+	}
+	if *c.ScrapeTimeoutSeconds < 1 {
+		return errors.New("scrape timeout should be greater than zero")
+	}
+	if *c.BodySizeLimitBytes < 100 {
+		return errors.New("openmetrics body size is not realistic, should be greater than 100 bytes")
+	}
 	return nil
 }
 
