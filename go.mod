@@ -6,6 +6,7 @@ require (
 	github.com/mattermost/mattermost/server/public v0.0.9
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20231109142113-8bf0c1971415
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.47.2
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/mock v0.3.0
@@ -72,7 +73,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
-	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
