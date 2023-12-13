@@ -36,7 +36,7 @@ type configuration struct {
 	EnableMetadataStorage *bool
 	// Scrape interval is the time between polling the /metrics endpoint
 	ScrapeIntervalSeconds *int
-	// Screap timeout tells scraper to give up on the poll for a single scrape attempt
+	// Screpe timeout tells scraper to give up on the poll for a single scrape attempt
 	ScrapeTimeoutSeconds *int
 }
 

@@ -85,12 +85,11 @@ func (p *Plugin) OnActivate() error {
 	scrapeInterval := *p.configuration.ScrapeIntervalSeconds
 
 	// TODO(isacikgoz): Use multiple targets for HA env
-	ls := labels.FromMap(map[string]string{
-		model.AddressLabel:        "localhost:8067",
+	lb := labels.NewBuilder(labels.FromMap(map[string]string{
+		model.AddressLabel:        *appCfg.ServiceSettings.SiteURL,
 		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
 		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
-	})
-	lb := labels.NewBuilder(ls)
+	}))
 
 	lset, origLabels, err := scrape.PopulateLabels(lb, &config.ScrapeConfig{
 		JobName: "prometheus",
