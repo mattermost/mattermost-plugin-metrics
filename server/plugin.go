@@ -86,7 +86,7 @@ func (p *Plugin) OnActivate() error {
 	scrapeInterval := *p.configuration.ScrapeIntervalSeconds
 	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
 	if err != nil {
-		return fmt.Errorf("could not parse the listen addres %q", *appCfg.MetricsSettings.ListenAddress)
+		return fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
 	}
 	if host == "" {
 		host = "localhost"
