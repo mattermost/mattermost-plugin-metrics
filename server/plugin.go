@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/log/level"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
 	"github.com/prometheus/common/model"
@@ -19,6 +22,7 @@ import (
 )
 
 const PluginName = "mattermost-plugin-metrics"
+const ScraperVersion = "1.0"
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
@@ -39,6 +43,8 @@ type Plugin struct {
 
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
+
+	closeChan chan bool
 }
 
 // ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
@@ -91,10 +97,11 @@ func (p *Plugin) OnActivate() error {
 	if host == "" {
 		host = "localhost"
 	}
+	targetAddres := host + ":" + port
 
 	// TODO(isacikgoz): Use multiple targets for HA env
 	lb := labels.NewBuilder(labels.FromMap(map[string]string{
-		model.AddressLabel:        host + ":" + port, // this is used for labeling the source
+		model.AddressLabel:        targetAddres, // this is used for labeling the source
 		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
 		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
 	}))
@@ -113,12 +120,41 @@ func (p *Plugin) OnActivate() error {
 		return mutateSampleLabels(l, target, *p.configuration.HonorTimestamps, []*relabel.Config{})
 	}
 
+	ticker := time.Tick(time.Duration(scrapeInterval) * time.Second)
+	p.closeChan = make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-p.closeChan:
+				return
+			case <-ticker:
+				cfg, err := p.configuration.Clone()
+				if err != nil {
+					_ = level.Error(logger).Log("msg", "configuration could not be cloned", "err", err)
+					break
+				}
+				buf := new(bytes.Buffer)
+				_, err = scrapeFn(context.TODO(), "http://"+targetAddres, buf, cfg)
+				if err != nil {
+					_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
+					continue
+				}
+
+				// TODO(isacikgoz): we will add scraped content to the appender here
+				// for now we basically throwing away
+			}
+		}
+	}()
+
 	return nil
 }
 
 func (p *Plugin) Deactivate() error {
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
+
+	close(p.closeChan)
 
 	if p.db != nil {
 		return p.db.Close()
