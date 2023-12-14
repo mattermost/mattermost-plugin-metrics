@@ -86,7 +86,7 @@ func (p *Plugin) OnActivate() error {
 
 	// TODO(isacikgoz): Use multiple targets for HA env
 	lb := labels.NewBuilder(labels.FromMap(map[string]string{
-		model.AddressLabel:        *appCfg.ServiceSettings.SiteURL,
+		model.AddressLabel:        *appCfg.ServiceSettings.SiteURL + *appCfg.MetricsSettings.ListenAddress, // this is used for labeling the source
 		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
 		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
 	}))
