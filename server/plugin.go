@@ -2,12 +2,19 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/model/relabel"
+	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 )
 
@@ -54,6 +61,10 @@ func (p *Plugin) OnActivate() error {
 		p.configuration.SetDefaults()
 	}
 
+	if err = p.configuration.IsValid(); err != nil {
+		return fmt.Errorf("could not validate config: %w", err)
+	}
+
 	// check if cluster is enabled
 	if p.isHA() {
 		// TODO(isacikgoz): get cluster info
@@ -70,6 +81,36 @@ func (p *Plugin) OnActivate() error {
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("could not open target tsdb: %w", err)
+	}
+
+	scrapeInterval := *p.configuration.ScrapeIntervalSeconds
+	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
+	if err != nil {
+		return fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
+	}
+	if host == "" {
+		host = "localhost"
+	}
+
+	// TODO(isacikgoz): Use multiple targets for HA env
+	lb := labels.NewBuilder(labels.FromMap(map[string]string{
+		model.AddressLabel:        host + ":" + port, // this is used for labeling the source
+		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
+		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
+	}))
+
+	lset, origLabels, err := scrape.PopulateLabels(lb, &config.ScrapeConfig{
+		JobName: "prometheus",
+	}, true)
+	if err != nil {
+		return err
+	}
+
+	target := scrape.NewTarget(lset, origLabels, url.Values{})
+
+	// Mutator is being used to apply labels to the metric samples
+	sampleMutator = func(l labels.Labels) labels.Labels {
+		return mutateSampleLabels(l, target, *p.configuration.HonorTimestamps, []*relabel.Config{})
 	}
 
 	return nil
