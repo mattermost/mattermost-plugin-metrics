@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/alecthomas/units"
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -121,6 +124,7 @@ func (p *Plugin) OnActivate() error {
 		// or listening the cluster event messages
 		p.API.LogWarn("cluster meterics is not enabled")
 	}
+	targetAddres := host + ":" + port
 
 	// this goroutine will need to be re-structurd to listen a more channels
 	// once we start supporting HA, we will need to listen the cluster change channel and
@@ -131,6 +135,33 @@ func (p *Plugin) OnActivate() error {
 		<-p.closeChan
 		p.API.LogInfo("Stopping scrape manager...")
 		manager.Stop()
+	}()
+
+	ticker := time.Tick(time.Duration(scrapeInterval) * time.Second)
+	p.closeChan = make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-p.closeChan:
+				return
+			case <-ticker:
+				cfg, err := p.configuration.Clone()
+				if err != nil {
+					_ = level.Error(logger).Log("msg", "configuration could not be cloned", "err", err)
+					break
+				}
+				buf := new(bytes.Buffer)
+				_, err = scrapeFn(context.TODO(), "http://"+targetAddres, buf, cfg)
+				if err != nil {
+					_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
+					continue
+				}
+
+				// TODO(isacikgoz): we will add scraped content to the appender here
+				// for now we basically throwing away
+			}
+		}
 	}()
 
 	return nil
