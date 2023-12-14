@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -83,10 +84,17 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	scrapeInterval := *p.configuration.ScrapeIntervalSeconds
+	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
+	if err != nil {
+		return fmt.Errorf("could not parse the listen addres %q", *appCfg.MetricsSettings.ListenAddress)
+	}
+	if host == "" {
+		host = "localhost"
+	}
 
 	// TODO(isacikgoz): Use multiple targets for HA env
 	lb := labels.NewBuilder(labels.FromMap(map[string]string{
-		model.AddressLabel:        *appCfg.ServiceSettings.SiteURL + *appCfg.MetricsSettings.ListenAddress, // this is used for labeling the source
+		model.AddressLabel:        host + ":" + port, // this is used for labeling the source
 		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
 		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
 	}))
