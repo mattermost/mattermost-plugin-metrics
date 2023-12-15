@@ -21,8 +21,7 @@ import (
 	"github.com/prometheus/prometheus/tsdb"
 )
 
-const PluginName = "mattermost-plugin-metrics"
-const ScraperVersion = "1.0"
+var sampleMutator func(labels.Labels) labels.Labels //nolint:unused
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
@@ -44,6 +43,7 @@ type Plugin struct {
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
 
+	ticker    *time.Ticker
 	closeChan chan bool
 }
 
@@ -97,11 +97,11 @@ func (p *Plugin) OnActivate() error {
 	if host == "" {
 		host = "localhost"
 	}
-	targetAddres := host + ":" + port
+	targetAddress := host + ":" + port
 
 	// TODO(isacikgoz): Use multiple targets for HA env
 	lb := labels.NewBuilder(labels.FromMap(map[string]string{
-		model.AddressLabel:        targetAddres, // this is used for labeling the source
+		model.AddressLabel:        targetAddress, // this is used for labeling the source
 		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
 		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
 	}))
@@ -120,30 +120,28 @@ func (p *Plugin) OnActivate() error {
 		return mutateSampleLabels(l, target, *p.configuration.HonorTimestamps, []*relabel.Config{})
 	}
 
-	ticker := time.Tick(time.Duration(scrapeInterval) * time.Second)
+	p.ticker = time.NewTicker(time.Duration(scrapeInterval) * time.Second)
 	p.closeChan = make(chan bool)
 
-	go func() {
-		for {
-			select {
-			case <-p.closeChan:
-				return
-			case <-ticker:
-				cfg, err := p.configuration.Clone()
-				if err != nil {
-					_ = level.Error(logger).Log("msg", "configuration could not be cloned", "err", err)
-					break
-				}
-				buf := new(bytes.Buffer)
-				_, err = scrapeFn(context.TODO(), "http://"+targetAddres, buf, cfg)
-				if err != nil {
-					_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
-					continue
-				}
+	cfg, err := p.configuration.Clone()
+	if err != nil {
+		return fmt.Errorf("could not clone the config: %w", err)
+	}
 
-				// TODO(isacikgoz): we will add scraped content to the appender here
-				// for now we basically throwing away
+	go func() {
+		defer close(p.closeChan)
+		buf := new(bytes.Buffer)
+
+		for range p.ticker.C {
+			_, err := scrapeFn(context.TODO(), "http://"+targetAddress, buf, cfg)
+			if err != nil {
+				_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
+				continue
 			}
+
+			// TODO(isacikgoz): we will add scraped content to the appender here
+			// for now we basically throwing away
+			buf.Reset()
 		}
 	}()
 
@@ -154,7 +152,8 @@ func (p *Plugin) Deactivate() error {
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
 
-	close(p.closeChan)
+	p.ticker.Stop()
+	<-p.closeChan
 
 	if p.db != nil {
 		return p.db.Close()

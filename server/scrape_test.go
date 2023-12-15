@@ -55,7 +55,7 @@ func TestScrapeFn(t *testing.T) {
 
 	t.Run("size limit exceeded", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(strings.Repeat("test", 101)))
+			_, _ = w.Write([]byte(strings.Repeat("a", 101)))
 		}))
 		defer ts.Close()
 
