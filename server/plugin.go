@@ -40,6 +40,7 @@ type Plugin struct {
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
 
+	ticker    *time.Ticker
 	closeChan chan bool
 	waitGroup sync.WaitGroup
 
@@ -124,7 +125,7 @@ func (p *Plugin) OnActivate() error {
 		// or listening the cluster event messages
 		p.API.LogWarn("cluster meterics is not enabled")
 	}
-	targetAddres := host + ":" + port
+	targetAddress := host + ":" + port
 
 	// this goroutine will need to be re-structurd to listen a more channels
 	// once we start supporting HA, we will need to listen the cluster change channel and
@@ -137,30 +138,28 @@ func (p *Plugin) OnActivate() error {
 		manager.Stop()
 	}()
 
-	ticker := time.Tick(time.Duration(scrapeInterval) * time.Second)
+	p.ticker = time.NewTicker(time.Duration(scrapeInterval) * time.Second)
 	p.closeChan = make(chan bool)
 
-	go func() {
-		for {
-			select {
-			case <-p.closeChan:
-				return
-			case <-ticker:
-				cfg, err := p.configuration.Clone()
-				if err != nil {
-					_ = level.Error(logger).Log("msg", "configuration could not be cloned", "err", err)
-					break
-				}
-				buf := new(bytes.Buffer)
-				_, err = scrapeFn(context.TODO(), "http://"+targetAddres, buf, cfg)
-				if err != nil {
-					_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
-					continue
-				}
+	cfg, err := p.configuration.Clone()
+	if err != nil {
+		return fmt.Errorf("could not clone the config: %w", err)
+	}
 
-				// TODO(isacikgoz): we will add scraped content to the appender here
-				// for now we basically throwing away
+	go func() {
+		defer close(p.closeChan)
+		buf := new(bytes.Buffer)
+
+		for range p.ticker.C {
+			_, err := scrapeFn(context.TODO(), "http://"+targetAddress, buf, cfg)
+			if err != nil {
+				_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
+				continue
 			}
+
+			// TODO(isacikgoz): we will add scraped content to the appender here
+			// for now we basically throwing away
+			buf.Reset()
 		}
 	}()
 

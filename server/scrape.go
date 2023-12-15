@@ -7,12 +7,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strconv"
 
-	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/pkg/errors"
 )
+
+var errBodySizeLimit = errors.New("body size limit exceeded")
 
 func scrapeFn(ctx context.Context, url string, w io.Writer, conf *configuration) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
@@ -37,31 +38,23 @@ func scrapeFn(ctx context.Context, url string, w io.Writer, conf *configuration)
 		return "", fmt.Errorf("server returned HTTP status %s", resp.Status)
 	}
 
-	if *conf.BodySizeLimitBytes <= 0 {
-		conf.BodySizeLimitBytes = model.NewInt64(math.MaxInt64)
-	}
+	var rc io.ReadCloser
 	if resp.Header.Get("Content-Encoding") != "gzip" {
-		n, err2 := io.Copy(w, io.LimitReader(resp.Body, *conf.BodySizeLimitBytes))
-		if err2 != nil {
-			return "", err2
+		rc = resp.Body
+	} else {
+		buf := bufio.NewReader(resp.Body)
+		rc, err = gzip.NewReader(buf)
+		if err != nil {
+			return "", err
 		}
-		if n >= *conf.BodySizeLimitBytes {
-			return "", errBodySizeLimit
-		}
-		return resp.Header.Get("Content-Type"), nil
+	}
+	defer rc.Close()
+
+	n, err2 := io.Copy(w, io.LimitReader(rc, *conf.BodySizeLimitBytes))
+	if err2 != nil {
+		return "", err2
 	}
 
-	buf := bufio.NewReader(resp.Body)
-	gzipr, err := gzip.NewReader(buf)
-	if err != nil {
-		return "", err
-	}
-
-	n, err := io.Copy(w, io.LimitReader(gzipr, *conf.BodySizeLimitBytes))
-	gzipr.Close()
-	if err != nil {
-		return "", err
-	}
 	if n >= *conf.BodySizeLimitBytes {
 		return "", errBodySizeLimit
 	}
