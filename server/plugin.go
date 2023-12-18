@@ -120,6 +120,9 @@ func (p *Plugin) OnActivate() error {
 		return mutateSampleLabels(l, target, *p.configuration.HonorTimestamps, []*relabel.Config{})
 	}
 
+	app := p.db.Appender(context.Background())
+	cache := newScrapeCache()
+
 	p.ticker = time.NewTicker(time.Duration(scrapeInterval) * time.Second)
 	p.closeChan = make(chan bool)
 
@@ -133,14 +136,27 @@ func (p *Plugin) OnActivate() error {
 		buf := new(bytes.Buffer)
 
 		for range p.ticker.C {
-			_, err := scrapeFn(context.TODO(), "http://"+targetAddress, buf, cfg)
+			content, err := scrapeFn(context.TODO(), "http://"+targetAddress, buf, cfg)
 			if err != nil {
 				_ = level.Error(logger).Log("msg", "scrape failed", "err", err)
 				continue
 			}
 
-			// TODO(isacikgoz): we will add scraped content to the appender here
-			// for now we basically throwing away
+			err = appendFn(app, logger, cache, buf.Bytes(), content, time.Now().Round(0), cfg)
+			if err != nil {
+				_ = app.Rollback()
+				_ = level.Error(logger).Log("msg", "append failed", "err", err)
+				continue
+			}
+
+			err = app.Commit()
+			if err != nil {
+				_ = level.Error(logger).Log("msg", "scrape commit failed", "err", err)
+				continue
+			}
+
+			// we receive the the appender from tsdb by default
+			app = p.db.Appender(context.Background())
 			buf.Reset()
 		}
 	}()
