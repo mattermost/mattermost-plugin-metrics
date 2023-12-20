@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/alecthomas/units"
 	"github.com/pkg/errors"
 	promModel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -55,7 +56,7 @@ func (c *configuration) SetDefaults() {
 		c.EnableMemorySnapshotOnShutdown = model.NewBool(true)
 	}
 	if c.BodySizeLimitBytes == nil {
-		c.BodySizeLimitBytes = model.NewInt64(10000000)
+		c.BodySizeLimitBytes = model.NewInt64(int64(units.GiB))
 	}
 	if c.SampleLimit == nil {
 		c.SampleLimit = model.NewInt(0)
