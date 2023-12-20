@@ -3,11 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"path/filepath"
 	"reflect"
 
-	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/pkg/errors"
+	promModel "github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
+
+	"github.com/mattermost/mattermost/server/public/model"
 )
 
 // configuration captures the plugin's external configuration as exposed in the Mattermost server
@@ -100,26 +104,6 @@ func (c *configuration) Clone() (*configuration, error) {
 
 	return &clone, nil
 }
-
-// getConfiguration retrieves the active configuration under lock, making it safe to use
-// concurrently. The active configuration may change underneath the client of this method, but
-// the struct returned by this API call is considered immutable.
-func (p *Plugin) getConfiguration() (*configuration, error) {
-	p.configurationLock.Lock()
-	defer p.configurationLock.Unlock()
-
-	if p.configuration == nil {
-		p.configuration = new(configuration)
-		p.configuration.SetDefaults()
-	}
-
-	return p.configuration.Clone()
-}
-
-// func (p *Plugin) saveConfiguration() error {
-// 	p.API.SavePluginConfig()
-// 	return nil
-// }
 
 // setConfiguration replaces the active configuration under lock.
 //
@@ -221,4 +205,38 @@ func (p *Plugin) isHA() bool {
 	}
 
 	return cfg.ClusterSettings.Enable != nil && *cfg.ClusterSettings.Enable
+}
+
+func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) (map[string][]*targetgroup.Group, error) {
+	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
+	}
+
+	sync := map[string][]*targetgroup.Group{
+		"prometheus": make([]*targetgroup.Group, 1),
+	}
+
+	if nodes == nil || len(nodes) < 2 {
+		if host == "" {
+			host = "localhost"
+		}
+		targets := []*targetgroup.Group{
+			{Labels: promModel.LabelSet{
+				promModel.AddressLabel: promModel.LabelValue(host + ":" + port),
+			}},
+		}
+		sync["prometheus"] = targets
+		return sync, nil
+	}
+
+	targets := make([]*targetgroup.Group, len(nodes))
+	for i, node := range nodes {
+		targets[i].Labels = promModel.LabelSet{
+			promModel.AddressLabel: promModel.LabelValue(node.Hostname + ":" + port),
+		}
+	}
+	sync["prometheus"] = targets
+
+	return sync, nil
 }

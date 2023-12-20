@@ -1,27 +1,20 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
-	"github.com/go-kit/log/level"
-	"github.com/mattermost/mattermost/server/public/plugin"
-	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
+	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/model/relabel"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
-)
 
-var sampleMutator func(labels.Labels) labels.Labels //nolint:unused
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
+)
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
@@ -43,17 +36,14 @@ type Plugin struct {
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
 
-	ticker    *time.Ticker
 	closeChan chan bool
-}
+	waitGroup sync.WaitGroup
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
-func (p *Plugin) ServeHTTP(_ *plugin.Context, w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprint(w, "Hello, world!")
+	logger log.Logger
 }
 
 func (p *Plugin) OnActivate() error {
-	logger := &metricsLogger{api: p.API}
+	p.logger = &metricsLogger{api: p.API}
 
 	appCfg := p.API.GetConfig()
 	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
@@ -71,16 +61,10 @@ func (p *Plugin) OnActivate() error {
 		return fmt.Errorf("could not validate config: %w", err)
 	}
 
-	// check if cluster is enabled
-	if p.isHA() {
-		// TODO(isacikgoz): get cluster info
-		p.API.LogWarn("cluster meterics is not enabled")
-	}
-
 	// initiate local tsdb
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
-	p.db, err = tsdb.Open(*p.configuration.DBPath, logger, nil, &tsdb.Options{
+	p.db, err = tsdb.Open(*p.configuration.DBPath, p.logger, nil, &tsdb.Options{
 		RetentionDuration:              int64(30 * 24 * time.Hour / time.Millisecond),
 		AllowOverlappingCompaction:     *p.configuration.AllowOverlappingCompaction,
 		EnableMemorySnapshotOnShutdown: *p.configuration.EnableMemorySnapshotOnShutdown,
@@ -89,87 +73,72 @@ func (p *Plugin) OnActivate() error {
 		return fmt.Errorf("could not open target tsdb: %w", err)
 	}
 
-	scrapeInterval := *p.configuration.ScrapeIntervalSeconds
-	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
-	if err != nil {
-		return fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
-	}
-	if host == "" {
-		host = "localhost"
-	}
-	targetAddress := host + ":" + port
-
-	// TODO(isacikgoz): Use multiple targets for HA env
-	lb := labels.NewBuilder(labels.FromMap(map[string]string{
-		model.AddressLabel:        targetAddress, // this is used for labeling the source
-		model.ScrapeIntervalLabel: fmt.Sprintf("%ds", scrapeInterval),
-		model.ScrapeTimeoutLabel:  fmt.Sprintf("%ds", *p.configuration.ScrapeTimeoutSeconds),
-	}))
-
-	lset, origLabels, err := scrape.PopulateLabels(lb, &config.ScrapeConfig{
-		JobName: "prometheus",
-	}, true)
-	if err != nil {
-		return err
-	}
-
-	target := scrape.NewTarget(lset, origLabels, url.Values{})
-
-	// Mutator is being used to apply labels to the metric samples
-	sampleMutator = func(l labels.Labels) labels.Labels {
-		return mutateSampleLabels(l, target, *p.configuration.HonorTimestamps, []*relabel.Config{})
-	}
-
-	cache := newScrapeCache()
-
-	p.ticker = time.NewTicker(time.Duration(scrapeInterval) * time.Second)
+	manager := scrape.NewManager(nil, p.logger, p.db)
+	syncCh := make(chan map[string][]*targetgroup.Group)
 	p.closeChan = make(chan bool)
+	p.waitGroup = sync.WaitGroup{}
 
-	cfg, err := p.configuration.Clone()
+	// we start the manager first, then apply the scrape config
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
+
+		p.API.LogInfo("Running scrape manager...")
+		err := manager.Run(syncCh)
+		if err != nil {
+			p.API.LogError("scrape manager exited unexpectedly", "err", err)
+		}
+	}()
+
+	scpCfg := &config.Config{
+		ScrapeConfigs: []*config.ScrapeConfig{
+			{
+				JobName:        "prometheus",
+				Scheme:         "http",
+				MetricsPath:    "metrics",
+				ScrapeInterval: model.Duration(time.Duration(*p.configuration.ScrapeIntervalSeconds) * time.Second),
+				ScrapeTimeout:  model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
+			},
+		},
+	}
+	manager.ApplyConfig(scpCfg)
+
+	sync, err := generateTargetGroup(p.API.GetConfig(), nil)
 	if err != nil {
-		return fmt.Errorf("could not clone the config: %w", err)
+		return fmt.Errorf("could not set scrape target :%w", err)
+	}
+	syncCh <- sync
+
+	// check if cluster is enabled
+	if p.isHA() {
+		// TODO(isacikgoz): get cluster info
+		// we will need to push new cluster layout to p.clusterCh by either polling the cluster table
+		// or listening the cluster event messages
+		p.API.LogWarn("cluster meterics is not enabled")
 	}
 
+	// this goroutine will need to be re-structurd to listen a more channels
+	// once we start supporting HA, we will need to listen the cluster change channel and
+	// convert the []mmodel.ClusterDiscovery entries into map[string][]*targetgroup.Group
+	p.waitGroup.Add(1)
 	go func() {
-		defer close(p.closeChan)
-		buf := new(bytes.Buffer)
-
-		for range p.ticker.C {
-			// we receive the the appender from tsdb by default
-			app := p.db.Appender(context.Background())
-			buf.Reset()
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*cfg.ScrapeTimeoutSeconds)*time.Second)
-			content, err := scrapeFn(ctx, "http://"+targetAddress+"/metrics", buf, cfg)
-			if err != nil {
-				cancel()
-				level.Error(logger).Log("msg", "scrape failed", "err", err)
-				continue
-			}
-			cancel()
-
-			err = appendFn(app, logger, cache, buf.Bytes(), content, time.Now().Round(0), cfg)
-			if err != nil {
-				level.Error(logger).Log("msg", "append failed", "err", err)
-				continue
-			}
-
-			err = app.Commit()
-			if err != nil {
-				level.Error(logger).Log("msg", "scrape commit failed", "err", err)
-			}
-		}
+		defer p.waitGroup.Done()
+		<-p.closeChan
+		p.API.LogInfo("Stopping scrape manager...")
+		manager.Stop()
 	}()
 
 	return nil
 }
 
-func (p *Plugin) Deactivate() error {
+func (p *Plugin) OnDeactivate() error {
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
 
-	p.ticker.Stop()
-	<-p.closeChan
+	close(p.closeChan)
+	p.waitGroup.Wait()
+
+	p.API.LogInfo("Scrape manager stopped")
 
 	if p.db != nil {
 		return p.db.Close()
