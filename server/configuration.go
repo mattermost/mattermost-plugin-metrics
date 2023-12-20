@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/docker/go-units"
+	"github.com/alecthomas/units"
 	"github.com/pkg/errors"
 	promModel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
