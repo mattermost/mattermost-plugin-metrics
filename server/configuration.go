@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/alecthomas/units"
+	"github.com/docker/go-units"
 	"github.com/pkg/errors"
 	promModel "github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -214,36 +214,30 @@ func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) 
 		return nil, fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
 	}
 
-	sync := make(map[string][]*targetgroup.Group)
+	sync := map[string][]*targetgroup.Group{
+		"prometheus": make([]*targetgroup.Group, 1),
+	}
 
 	if nodes == nil || len(nodes) < 2 {
 		if host == "" {
 			host = "localhost"
 		}
-		sync["prometheus"] = []*targetgroup.Group{
-			{
-				Targets: []promModel.LabelSet{
-					{
-						promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, port)),
-					},
-				},
-			},
+		targets := []*targetgroup.Group{
+			{Labels: promModel.LabelSet{
+				promModel.AddressLabel: promModel.LabelValue(host + ":" + port),
+			}},
 		}
-
+		sync["prometheus"] = targets
 		return sync, nil
 	}
 
-	targets := make([]promModel.LabelSet, len(nodes))
+	targets := make([]*targetgroup.Group, len(nodes))
 	for i, node := range nodes {
-		targets[i] = promModel.LabelSet{
-			promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
+		targets[i].Labels = promModel.LabelSet{
+			promModel.AddressLabel: promModel.LabelValue(node.Hostname + ":" + port),
 		}
 	}
-	sync["prometheus"] = []*targetgroup.Group{
-		{
-			Targets: targets,
-		},
-	}
+	sync["prometheus"] = targets
 
 	return sync, nil
 }

@@ -1,15 +1,11 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/alecthomas/units"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -40,7 +36,6 @@ type Plugin struct {
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
 
-	ticker    *time.Ticker
 	closeChan chan bool
 	waitGroup sync.WaitGroup
 
@@ -89,24 +84,20 @@ func (p *Plugin) OnActivate() error {
 		defer p.waitGroup.Done()
 
 		p.API.LogInfo("Running scrape manager...")
-		err2 := manager.Run(syncCh)
-		if err2 != nil {
-			p.API.LogError("scrape manager exited unexpectedly", "err", err2)
+		err := manager.Run(syncCh)
+		if err != nil {
+			p.API.LogError("scrape manager exited unexpectedly", "err", err)
 		}
 	}()
 
 	scpCfg := &config.Config{
 		ScrapeConfigs: []*config.ScrapeConfig{
 			{
-				JobName:                    "prometheus",
-				Scheme:                     "http",
-				MetricsPath:                "metrics",
-				ScrapeInterval:             model.Duration(time.Duration(*p.configuration.ScrapeIntervalSeconds) * time.Second),
-				ScrapeTimeout:              model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
-				BodySizeLimit:              units.Base2Bytes(*p.configuration.BodySizeLimitBytes),
-				HonorLabels:                *p.configuration.HonorTimestamps,
-				SampleLimit:                uint(*p.configuration.SampleLimit),
-				NativeHistogramBucketLimit: uint(*p.configuration.BucketLimit),
+				JobName:        "prometheus",
+				Scheme:         "http",
+				MetricsPath:    "metrics",
+				ScrapeInterval: model.Duration(time.Duration(*p.configuration.ScrapeIntervalSeconds) * time.Second),
+				ScrapeTimeout:  model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
 			},
 		},
 	}
@@ -125,7 +116,6 @@ func (p *Plugin) OnActivate() error {
 		// or listening the cluster event messages
 		p.API.LogWarn("cluster meterics is not enabled")
 	}
-	targetAddress := host + ":" + port
 
 	// this goroutine will need to be re-structurd to listen a more channels
 	// once we start supporting HA, we will need to listen the cluster change channel and
@@ -136,47 +126,6 @@ func (p *Plugin) OnActivate() error {
 		<-p.closeChan
 		p.API.LogInfo("Stopping scrape manager...")
 		manager.Stop()
-	}()
-
-	cache := newScrapeCache()
-
-	p.ticker = time.NewTicker(time.Duration(scrapeInterval) * time.Second)
-	p.closeChan = make(chan bool)
-
-	cfg, err := p.configuration.Clone()
-	if err != nil {
-		return fmt.Errorf("could not clone the config: %w", err)
-	}
-
-	go func() {
-		defer close(p.closeChan)
-		buf := new(bytes.Buffer)
-
-		for range p.ticker.C {
-			// we receive the the appender from tsdb by default
-			app := p.db.Appender(context.Background())
-			buf.Reset()
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*cfg.ScrapeTimeoutSeconds)*time.Second)
-			content, err := scrapeFn(ctx, "http://"+targetAddress+"/metrics", buf, cfg)
-			if err != nil {
-				cancel()
-				level.Error(logger).Log("msg", "scrape failed", "err", err)
-				continue
-			}
-			cancel()
-
-			err = appendFn(app, logger, cache, buf.Bytes(), content, time.Now().Round(0), cfg)
-			if err != nil {
-				level.Error(logger).Log("msg", "append failed", "err", err)
-				continue
-			}
-
-			err = app.Commit()
-			if err != nil {
-				level.Error(logger).Log("msg", "scrape commit failed", "err", err)
-			}
-		}
 	}()
 
 	return nil
