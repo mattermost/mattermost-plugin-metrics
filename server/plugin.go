@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alecthomas/units"
 	"github.com/go-kit/log"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
@@ -93,11 +94,15 @@ func (p *Plugin) OnActivate() error {
 	scpCfg := &config.Config{
 		ScrapeConfigs: []*config.ScrapeConfig{
 			{
-				JobName:        "prometheus",
-				Scheme:         "http",
-				MetricsPath:    "metrics",
-				ScrapeInterval: model.Duration(time.Duration(*p.configuration.ScrapeIntervalSeconds) * time.Second),
-				ScrapeTimeout:  model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
+				JobName:                    "prometheus",
+				Scheme:                     "http",
+				MetricsPath:                "metrics",
+				ScrapeInterval:             model.Duration(time.Duration(*p.configuration.ScrapeIntervalSeconds) * time.Second),
+				ScrapeTimeout:              model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
+				BodySizeLimit:              units.Base2Bytes(*p.configuration.BodySizeLimitBytes),
+				HonorLabels:                *p.configuration.HonorTimestamps,
+				SampleLimit:                uint(*p.configuration.SampleLimit),
+				NativeHistogramBucketLimit: uint(*p.configuration.BucketLimit),
 			},
 		},
 	}
