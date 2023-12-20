@@ -84,9 +84,9 @@ func (p *Plugin) OnActivate() error {
 		defer p.waitGroup.Done()
 
 		p.API.LogInfo("Running scrape manager...")
-		err := manager.Run(syncCh)
-		if err != nil {
-			p.API.LogError("scrape manager exited unexpectedly", "err", err)
+		err2 := manager.Run(syncCh)
+		if err2 != nil {
+			p.API.LogError("scrape manager exited unexpectedly", "err", err2)
 		}
 	}()
 
