@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/metadata"
 	"github.com/prometheus/prometheus/model/textparse"
-	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/storage"
 )
 
@@ -164,6 +163,7 @@ func (c *scrapeCache) forEachStale(f func(labels.Labels) bool) {
 
 func (c *scrapeCache) setType(metric []byte, t textparse.MetricType) {
 	c.metaMtx.Lock()
+	defer c.metaMtx.Unlock()
 
 	e, ok := c.metadata[string(metric)]
 	if !ok {
@@ -175,12 +175,11 @@ func (c *scrapeCache) setType(metric []byte, t textparse.MetricType) {
 		e.lastIterChange = c.iter
 	}
 	e.lastIter = c.iter
-
-	c.metaMtx.Unlock()
 }
 
 func (c *scrapeCache) setHelp(metric, help []byte) {
 	c.metaMtx.Lock()
+	defer c.metaMtx.Unlock()
 
 	e, ok := c.metadata[string(metric)]
 	if !ok {
@@ -192,12 +191,11 @@ func (c *scrapeCache) setHelp(metric, help []byte) {
 		e.lastIterChange = c.iter
 	}
 	e.lastIter = c.iter
-
-	c.metaMtx.Unlock()
 }
 
 func (c *scrapeCache) setUnit(metric, unit []byte) {
 	c.metaMtx.Lock()
+	defer c.metaMtx.Unlock()
 
 	e, ok := c.metadata[string(metric)]
 	if !ok {
@@ -209,65 +207,6 @@ func (c *scrapeCache) setUnit(metric, unit []byte) {
 		e.lastIterChange = c.iter
 	}
 	e.lastIter = c.iter
-
-	c.metaMtx.Unlock()
-}
-
-func (c *scrapeCache) GetMetadata(metric string) (scrape.MetricMetadata, bool) {
-	c.metaMtx.Lock()
-	defer c.metaMtx.Unlock()
-
-	m, ok := c.metadata[metric]
-	if !ok {
-		return scrape.MetricMetadata{}, false
-	}
-	return scrape.MetricMetadata{
-		Metric: metric,
-		Type:   m.Type,
-		Help:   m.Help,
-		Unit:   m.Unit,
-	}, true
-}
-
-func (c *scrapeCache) ListMetadata() []scrape.MetricMetadata {
-	c.metaMtx.Lock()
-	defer c.metaMtx.Unlock()
-
-	res := make([]scrape.MetricMetadata, 0, len(c.metadata))
-
-	for m, e := range c.metadata {
-		res = append(res, scrape.MetricMetadata{
-			Metric: m,
-			Type:   e.Type,
-			Help:   e.Help,
-			Unit:   e.Unit,
-		})
-	}
-	return res
-}
-
-// MetadataSize returns the size of the metadata cache.
-func (c *scrapeCache) SizeMetadata() (s int) {
-	c.metaMtx.Lock()
-	defer c.metaMtx.Unlock()
-	for _, e := range c.metadata {
-		s += e.size()
-	}
-
-	return s
-}
-
-// MetadataLen returns the number of metadata entries in the cache.
-func (c *scrapeCache) LengthMetadata() int {
-	c.metaMtx.Lock()
-	defer c.metaMtx.Unlock()
-
-	return len(c.metadata)
-}
-
-func (m *metaEntry) size() int {
-	// The attribute lastIter although part of the struct it is not metadata.
-	return len(m.Help) + len(m.Unit) + len(m.Type)
 }
 
 // Adds samples to the appender, checking the error, and then returns the # of samples added,
