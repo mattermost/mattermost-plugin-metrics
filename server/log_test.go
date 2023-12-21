@@ -3,9 +3,10 @@ package main
 import (
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-metrics/server/mocks"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/mattermost/mattermost-plugin-metrics/server/mocks"
 )
 
 func TestLog(t *testing.T) {

@@ -3,6 +3,8 @@ module github.com/mattermost/mattermost-plugin-metrics
 go 1.20
 
 require (
+	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
+	github.com/go-kit/log v0.2.1
 	github.com/mattermost/mattermost/server/public v0.0.9
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20231109142113-8bf0c1971415
 	github.com/pkg/errors v0.9.1
@@ -18,7 +20,6 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.3.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
-	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/aws/aws-sdk-go v1.44.302 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -30,7 +31,6 @@ require (
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/francoispqt/gojay v1.2.13 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
-	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
