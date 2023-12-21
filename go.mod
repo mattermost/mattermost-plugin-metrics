@@ -5,8 +5,9 @@ go 1.20
 require (
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/go-kit/log v0.2.1
-	github.com/mattermost/mattermost/server/public v0.0.9
+	github.com/mattermost/mattermost/server/public v0.0.10-0.20231212101725-07bf343e4697
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20231109142113-8bf0c1971415
+	github.com/oklog/ulid v1.3.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.47.2
@@ -40,7 +41,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
-	github.com/graph-gophers/graphql-go v1.5.1-0.20230110080634-edea822f558a // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-plugin v1.4.10 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
@@ -52,8 +52,8 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/mattermost/go-i18n v1.11.1-0.20211013152124-5c415071e404 // indirect
-	github.com/mattermost/ldap v0.0.0-20201202150706-ee0e6284187d // indirect
-	github.com/mattermost/logr/v2 v2.0.18 // indirect
+	github.com/mattermost/ldap v0.0.0-20231116144001-0f480c025956 // indirect
+	github.com/mattermost/logr/v2 v2.0.21 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
@@ -65,7 +65,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
