@@ -214,30 +214,36 @@ func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) 
 		return nil, fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
 	}
 
-	sync := map[string][]*targetgroup.Group{
-		"prometheus": make([]*targetgroup.Group, 1),
-	}
+	sync := make(map[string][]*targetgroup.Group)
 
 	if nodes == nil || len(nodes) < 2 {
 		if host == "" {
 			host = "localhost"
 		}
-		targets := []*targetgroup.Group{
-			{Labels: promModel.LabelSet{
-				promModel.AddressLabel: promModel.LabelValue(host + ":" + port),
-			}},
+		sync["prometheus"] = []*targetgroup.Group{
+			{
+				Targets: []promModel.LabelSet{
+					{
+						promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, port)),
+					},
+				},
+			},
 		}
-		sync["prometheus"] = targets
+
 		return sync, nil
 	}
 
-	targets := make([]*targetgroup.Group, len(nodes))
+	targets := make([]promModel.LabelSet, len(nodes))
 	for i, node := range nodes {
-		targets[i].Labels = promModel.LabelSet{
-			promModel.AddressLabel: promModel.LabelValue(node.Hostname + ":" + port),
+		targets[i] = promModel.LabelSet{
+			promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
 		}
 	}
-	sync["prometheus"] = targets
+	sync["prometheus"] = []*targetgroup.Group{
+		{
+			Targets: targets,
+		},
+	}
 
 	return sync, nil
 }
