@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"io"
 	"os"
 	"path/filepath"
@@ -106,4 +107,64 @@ func TestCopy(t *testing.T) {
 		err := copyFile(src, dst, localWriter)
 		require.True(t, os.IsNotExist(err))
 	})
+}
+
+func TestZipDirectory(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	sampleFiles := []struct {
+		Name, Content string
+	}{
+		{"file1.txt", "This is file 1."},
+		{"subdir/file2.txt", "This is file 2."},
+	}
+
+	for _, file := range sampleFiles {
+		filePath := filepath.Join(tempDir, file.Name)
+
+		err = os.MkdirAll(filepath.Dir(filePath), 0755)
+		require.NoError(t, err)
+
+		err = os.WriteFile(filePath, []byte(file.Content), 0600)
+		require.NoError(t, err)
+	}
+
+	zipFilePath := filepath.Join(tempDir, "test.zip")
+	err = zipDirectory(tempDir, zipFilePath)
+	require.NoError(t, err)
+
+	_, err = os.Stat(zipFilePath)
+	require.False(t, os.IsNotExist(err))
+
+	zipFile, err := zip.OpenReader(zipFilePath)
+	require.NoError(t, err)
+	defer zipFile.Close()
+
+	expectedContents := map[string]string{
+		"file1.txt":        "This is file 1.",
+		"subdir/file2.txt": "This is file 2.",
+	}
+
+	for _, file := range zipFile.File {
+		if file.Name == "test.zip" {
+			continue // ignore root
+		}
+		content, ok := expectedContents[file.Name]
+		require.True(t, ok, file.Name)
+
+		expectedContent := []byte(content)
+		zippedFile, err := file.Open()
+		require.NoError(t, err)
+		defer zippedFile.Close()
+
+		zippedContent, err := io.ReadAll(zippedFile)
+		require.NoError(t, err)
+		require.Equal(t, expectedContent, zippedContent)
+
+		delete(expectedContents, file.Name)
+	}
+
+	require.Empty(t, expectedContents)
 }
