@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/oklog/ulid"
@@ -127,7 +126,7 @@ func (p *Plugin) syncWithRemote(localStorageDir, remoteStorageDir string, retent
 	for i := range dirs {
 		// we trim the parent dir from the dirs as filebackend returns the
 		// absolute path (relative to filestore root)
-		dir := strings.TrimPrefix(dirs[i], remoteStorageDir+string(os.PathSeparator))
+		dir := filepath.Base(dirs[i])
 		blocksInSFileStore[dir] = true
 	}
 
