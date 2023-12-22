@@ -133,6 +133,12 @@ func (p *Plugin) OnActivate() error {
 		manager.Stop()
 	}()
 
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
+		p.syncFileStore()
+	}()
+
 	return nil
 }
 

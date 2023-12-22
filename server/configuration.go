@@ -43,11 +43,17 @@ type configuration struct {
 	ScrapeIntervalSeconds *int
 	// Screpe timeout tells scraper to give up on the poll for a single scrape attempt
 	ScrapeTimeoutSeconds *int
+	// RetentionDurationDays defines the retention time for the tsdb blocks
+	RetentionDurationDays *int
+	// FileStoreSyncPeriodMinutes is the period to sync local store with the remote filestore
+	FileStoreSyncPeriodMinutes *int
+	// FileStoreCleanupPeriodMinutes is the period to run cleanup job in the filestore
+	FileStoreCleanupPeriodMinutes *int
 }
 
 func (c *configuration) SetDefaults() {
 	if c.DBPath == nil {
-		c.DBPath = model.NewString(filepath.Join(PluginName, "data"))
+		c.DBPath = model.NewString(filepath.Join(PluginName, tsdbDirName))
 	}
 	if c.AllowOverlappingCompaction == nil {
 		c.AllowOverlappingCompaction = model.NewBool(true)
@@ -75,6 +81,15 @@ func (c *configuration) SetDefaults() {
 	}
 	if c.ScrapeTimeoutSeconds == nil {
 		c.ScrapeTimeoutSeconds = model.NewInt(10)
+	}
+	if c.RetentionDurationDays == nil {
+		c.RetentionDurationDays = model.NewInt(15)
+	}
+	if c.FileStoreSyncPeriodMinutes == nil {
+		c.FileStoreSyncPeriodMinutes = model.NewInt(60)
+	}
+	if c.FileStoreCleanupPeriodMinutes == nil {
+		c.FileStoreCleanupPeriodMinutes = model.NewInt(120)
 	}
 }
 
@@ -215,11 +230,11 @@ func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) 
 	}
 
 	sync := make(map[string][]*targetgroup.Group)
-
 	if nodes == nil || len(nodes) < 2 {
 		if host == "" {
 			host = "localhost"
 		}
+
 		sync["prometheus"] = []*targetgroup.Group{
 			{
 				Targets: []promModel.LabelSet{
@@ -239,6 +254,7 @@ func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) 
 			promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
 		}
 	}
+
 	sync["prometheus"] = []*targetgroup.Group{
 		{
 			Targets: targets,
