@@ -14,12 +14,15 @@ import (
 	"github.com/prometheus/prometheus/tsdb"
 
 	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
 )
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
 	plugin.MattermostPlugin
+
+	client *pluginapi.Client
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -44,6 +47,7 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+	p.client = pluginapi.NewClient(p.API, p.Driver)
 	p.logger = &metricsLogger{api: p.API}
 
 	appCfg := p.API.GetConfig()
@@ -108,18 +112,53 @@ func (p *Plugin) OnActivate() error {
 	}
 	manager.ApplyConfig(scpCfg)
 
-	sync, err := generateTargetGroup(p.API.GetConfig(), nil)
-	if err != nil {
-		return fmt.Errorf("could not set scrape target :%w", err)
-	}
-	syncCh <- sync
-
 	// check if cluster is enabled
 	if p.isHA() {
-		// TODO(isacikgoz): get cluster info
-		// we will need to push new cluster layout to p.clusterCh by either polling the cluster table
-		// or listening the cluster event messages
-		p.API.LogWarn("cluster meterics is not enabled")
+		p.waitGroup.Add(1)
+		go func() {
+			defer p.waitGroup.Done()
+			ticker := time.NewTicker(time.Minute)
+			defer func() {
+				ticker.Stop()
+			}()
+
+			db, err := p.client.Store.GetMasterDB()
+			if err != nil {
+				p.API.LogError("Could not initiate the database connection", "error", err.Error())
+				return
+			}
+			defer db.Close()
+
+			for {
+				select {
+				case <-ticker.C:
+					list, err := pingClusterDiscoveryTable(db, p.client.Store.DriverName(), *p.API.GetConfig().ClusterSettings.ClusterName)
+					if err != nil {
+						p.API.LogError("Could not ping the cluster discovery table", "error", err.Error())
+						return
+					}
+
+					if !topologyChanged(nil, list) {
+						continue
+					}
+
+					sync, err := generateTargetGroup(p.API.GetConfig(), list)
+					if err != nil {
+						p.API.LogError("Could not genarate target group for cluster", "error", err.Error())
+						return
+					}
+					syncCh <- sync
+				case <-p.closeChan:
+					return
+				}
+			}
+		}()
+	} else {
+		sync, err := generateTargetGroup(p.API.GetConfig(), nil)
+		if err != nil {
+			return fmt.Errorf("could not set scrape target :%w", err)
+		}
+		syncCh <- sync
 	}
 
 	// this goroutine will need to be re-structurd to listen a more channels
