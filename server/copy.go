@@ -187,9 +187,5 @@ func zipDirectory(sourceDir, zipFile string) error {
 		return nil
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

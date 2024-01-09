@@ -1,6 +1,6 @@
 {
     "id": "com.mattermost.mattermost-plugin-metrics",
-    "name": "Mattermost openmetrics scraper",
+    "name": "Mattermost metrics plugin",
     "description": "This plugin serves as a openmetrics scraper for Mattermost. It can be used to store metrics data without Prometheus.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-metrics",
     "support_url": "https://github.com/mattermost/mattermost-plugin-metrics/issues",
@@ -21,8 +21,34 @@
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
-        "header": "",
-        "footer": "",
-        "settings": []
+        "header": "Mattermost metrics plugin settings",
+        "footer": "This plugin is a tool designed to scrape and store various data points from Mattermost application in openmetrics format, similar to what Prometheus does. It operates by collecting metrics at regular intervals, allowing to be used while troubleshooting issues by including these metrics into the support packet.",
+        "settings": [
+            {
+                "key": "collect_metrics_from",
+                "display_name": "Collect metrics from",
+                "type": "dropdown",
+                "help_text": "Select the length of the metrics to be included into the support packet",
+                "default": "last_week",
+                "options": [
+                    {
+                        "display_name": "Yesterday",
+                        "value": "yesterday"
+                    },
+                    {
+                        "display_name": "Last 3 days",
+                        "value": "3_days"
+                    },
+                    {
+                        "display_name": "Last week",
+                        "value": "last_week"
+                    },
+                    {
+                        "display_name": "Last 2 weeks",
+                        "value": "2_weeks"
+                    }
+                ]
+            }
+        ]
     }
 }

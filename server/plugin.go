@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -156,4 +158,38 @@ func (p *Plugin) OnDeactivate() error {
 	}
 
 	return nil
+}
+
+// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
+func (p *Plugin) ServeHTTP(_ *plugin.Context, w http.ResponseWriter, _ *http.Request) {
+	appCfg := p.API.GetConfig()
+	metricsFrom, ok := appCfg.PluginSettings.Plugins[PluginID]["collect_metrics_from"]
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var days int
+	switch metricsFrom {
+	case "yesterday":
+		days = -1
+	case "3_days":
+		days = -3
+	case "last_week":
+		days = -7
+	case "2_weeks":
+		days = -14
+	}
+
+	min := time.Now().AddDate(0, 0, days)
+	max := time.Now()
+
+	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
+	f, err := p.createDump(max, min, remoteStorageDir)
+	if err != nil {
+		p.API.LogError("Failed to created dump", "error", err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "dump created: %q", f)
 }
