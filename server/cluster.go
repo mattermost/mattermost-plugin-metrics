@@ -12,9 +12,8 @@ import (
 func pingClusterDiscoveryTable(db *sql.DB, driverName, clusterName string) ([]*model.ClusterDiscovery, error) {
 	builder := squirrel.StatementBuilder.PlaceholderFormat(getQueryPlaceholder(driverName))
 
-	query := builder.Select("*").From("ClusterDiscovery").
-		Where(squirrel.Eq{"Type": model.CDSTypeApp}).
-		Where(squirrel.Eq{"ClusterName": clusterName}).
+	query := builder.Select("Id,Hostname").From("ClusterDiscovery").
+		Where(squirrel.Eq{"Type": model.CDSTypeApp, "ClusterName": clusterName}).
 		Where(squirrel.Gt{"LastPingAt": model.GetMillis() - model.CDSOfflineAfterMillis})
 
 	queryString, args, err := query.ToSql()
@@ -29,8 +28,12 @@ func pingClusterDiscoveryTable(db *sql.DB, driverName, clusterName string) ([]*m
 	defer rows.Close()
 
 	list := []*model.ClusterDiscovery{}
-	if err := rows.Scan(&list); err != nil {
-		return nil, err
+	for rows.Next() {
+		var cd model.ClusterDiscovery
+		if err := rows.Scan(&cd.Id, &cd.Hostname); err != nil {
+			return nil, err
+		}
+		list = append(list, &cd)
 	}
 
 	return list, nil
@@ -45,7 +48,7 @@ func getQueryPlaceholder(driverName string) squirrel.PlaceholderFormat {
 
 func topologyChanged(a, b []*model.ClusterDiscovery) bool {
 	if len(a) != len(b) {
-		return false
+		return true
 	}
 
 	aMap := sliceToMap(a)
@@ -54,11 +57,11 @@ func topologyChanged(a, b []*model.ClusterDiscovery) bool {
 	for k := range aMap {
 		_, ok := bMap[k]
 		if !ok {
-			return false
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 func sliceToMap(s []*model.ClusterDiscovery) map[string]string {

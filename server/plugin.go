@@ -118,6 +118,8 @@ func (p *Plugin) OnActivate() error {
 		go func() {
 			defer p.waitGroup.Done()
 
+			// a minute should be the smallest amount of time to ping the table
+			// as the default scrape interval is already a minute.
 			ticker := time.NewTicker(time.Minute)
 			defer ticker.Stop()
 
