@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 
+	mmModel "github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
@@ -112,15 +113,13 @@ func (p *Plugin) OnActivate() error {
 	}
 	manager.ApplyConfig(scpCfg)
 
-	// check if cluster is enabled
 	if p.isHA() {
 		p.waitGroup.Add(1)
 		go func() {
 			defer p.waitGroup.Done()
+
 			ticker := time.NewTicker(time.Minute)
-			defer func() {
-				ticker.Stop()
-			}()
+			defer ticker.Stop()
 
 			db, err := p.client.Store.GetMasterDB()
 			if err != nil {
@@ -128,6 +127,7 @@ func (p *Plugin) OnActivate() error {
 				return
 			}
 			defer db.Close()
+			var currentList []*mmModel.ClusterDiscovery
 
 			for {
 				select {
@@ -138,9 +138,10 @@ func (p *Plugin) OnActivate() error {
 						return
 					}
 
-					if !topologyChanged(nil, list) {
+					if !topologyChanged(currentList, list) {
 						continue
 					}
+					currentList = list
 
 					sync, err := generateTargetGroup(p.API.GetConfig(), list)
 					if err != nil {
@@ -149,6 +150,7 @@ func (p *Plugin) OnActivate() error {
 					}
 					syncCh <- sync
 				case <-p.closeChan:
+					p.API.LogDebug("Cluster ping process stopped")
 					return
 				}
 			}
