@@ -65,7 +65,7 @@ func copyFile(srcFile, dstFile string, wr WriterFunc) error {
 	return nil
 }
 
-func readFromFileStore(dst, src string, b filestore.FileBackend) error { //nolint:unused
+func readFromFileStore(dst, src string, b filestore.FileBackend) error {
 	if ok, err := b.FileExists(src); !ok {
 		return nil
 	} else if err != nil {

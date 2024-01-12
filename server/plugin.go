@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -16,12 +15,15 @@ import (
 	"github.com/prometheus/prometheus/tsdb"
 
 	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
 )
 
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
 	plugin.MattermostPlugin
+
+	client *pluginapi.Client
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -43,10 +45,15 @@ type Plugin struct {
 	waitGroup sync.WaitGroup
 
 	logger log.Logger
+
+	handler *handler
 }
 
 func (p *Plugin) OnActivate() error {
+	p.client = pluginapi.NewClient(p.API, p.Driver)
 	p.logger = &metricsLogger{api: p.API}
+
+	p.handler = newHandler(p)
 
 	appCfg := p.API.GetConfig()
 	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
@@ -161,35 +168,6 @@ func (p *Plugin) OnDeactivate() error {
 }
 
 // ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
-func (p *Plugin) ServeHTTP(_ *plugin.Context, w http.ResponseWriter, _ *http.Request) {
-	appCfg := p.API.GetConfig()
-	metricsFrom, ok := appCfg.PluginSettings.Plugins[PluginID]["collect_metrics_from"]
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	var days int
-	switch metricsFrom {
-	case "yesterday":
-		days = -1
-	case "3_days":
-		days = -3
-	case "last_week":
-		days = -7
-	case "2_weeks":
-		days = -14
-	}
-
-	min := time.Now().AddDate(0, 0, days)
-	max := time.Now()
-
-	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	f, err := p.createDump(max, min, remoteStorageDir)
-	if err != nil {
-		p.API.LogError("Failed to created dump", "error", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	fmt.Fprintf(w, "dump created: %q", f)
+func (p *Plugin) ServeHTTP(_ *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	p.handler.ServeHTTP(w, r)
 }
