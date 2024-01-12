@@ -54,6 +54,9 @@ func (p *Plugin) OnActivate() error {
 	p.logger = &metricsLogger{api: p.API}
 	appCfg := p.API.GetConfig()
 
+	p.closeChan = make(chan bool)
+	p.waitGroup = sync.WaitGroup{}
+	
 	// we are using a mutually exclusive lock to run a single instance of this plugin
 	// we don't really need to collect metrics twice, in any case we can still collect
 	// twice, TSDB will takce care of overlapped blocks. But it will increase the disk
@@ -65,11 +68,8 @@ func (p *Plugin) OnActivate() error {
 			return err
 		}
 
-		// the constant '6' is determined by considering the maximum time duration for a lock refresh,
-		// which is 5 minutes. In an exceptional scenario where multiple plugins race for the lock
-		// and the intended plugin that is supposed to wait manages to acquire it, an extra minute is
-		// added to ensure a buffer for such edge cases, offering some level of resilience and stability.
-		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+		// the constant '20' is determined by healthcheck of the plugin which is 30 seconds.
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		err = p.singletonLock.LockWithContext(ctx)
 		if err != nil && errors.Is(err, context.DeadlineExceeded) {
@@ -110,8 +110,6 @@ func (p *Plugin) OnActivate() error {
 
 	manager := scrape.NewManager(nil, p.logger, p.db)
 	syncCh := make(chan map[string][]*targetgroup.Group)
-	p.closeChan = make(chan bool)
-	p.waitGroup = sync.WaitGroup{}
 
 	// we start the manager first, then apply the scrape config
 	p.waitGroup.Add(1)
