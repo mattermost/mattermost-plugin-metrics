@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
+	root "github.com/mattermost/mattermost-plugin-metrics"
+
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/web"
 )
@@ -25,14 +28,13 @@ func newHandler(plugin *Plugin) *handler {
 	root := mux.NewRouter()
 	root.Use(handler.authorized)
 
-	root.HandleFunc("/download", handler.downloadDumpHandler)
+	root.HandleFunc("/download", handler.downloadDumpHandler).Methods(http.MethodGet)
 	handler.router = root
 
 	return handler
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, MaxRequestSize)
 	h.router.ServeHTTP(w, r)
 }
 
@@ -55,7 +57,7 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 
 func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 	appCfg := h.plugin.API.GetConfig()
-	metricsFrom, ok := appCfg.PluginSettings.Plugins[PluginID]["collect_metrics_from"]
+	metricsFrom, ok := appCfg.PluginSettings.Plugins[root.Manifest.Id]["collect_metrics_from"]
 	if !ok {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -76,7 +78,7 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 	max := time.Now()
 
 	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	fp, err := h.plugin.createDump(r.Context(), max, min, remoteStorageDir)
+	fp, err := h.plugin.createDump(r.Context(), min, max, remoteStorageDir)
 	if err != nil {
 		h.plugin.API.LogError("Failed to created dump", "error", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

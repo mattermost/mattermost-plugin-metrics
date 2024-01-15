@@ -2,7 +2,9 @@ package main
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,7 +80,8 @@ func readFromFileStore(dst, src string, b filestore.FileBackend) error {
 	}
 
 	entries, listErr := b.ListDirectory(src)
-	if listErr != nil && strings.Contains(listErr.Error(), "not a directory") {
+	var pathError *fs.PathError
+	if listErr != nil && errors.As(listErr, &pathError) {
 		// means that this is a single file, copy the file to the local store
 		reader, err := b.Reader(src)
 		if err != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/prometheus/tsdb"
 )
 
-func (p *Plugin) createDump(ctx context.Context, max, min time.Time, remoteStorageDir string) (string, error) {
+func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStorageDir string) (string, error) {
 	// get the blocks if there is any block in the remote filestore
 	blocks, err := p.fileBackend.ListDirectory(remoteStorageDir)
 	if err != nil {
@@ -21,8 +21,6 @@ func (p *Plugin) createDump(ctx context.Context, max, min time.Time, remoteStora
 	}
 
 	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, zipFileName)
-	// read block meta from the remote filestore and decide if they are older than the
-	// retention period. If so, delete.
 	dumpDir := filepath.Join(PluginName, "dump")
 	for _, b := range blocks {
 		meta, rErr := readBlockMeta(filepath.Join(b, metaFileName), p.fileBackend.ReadFile)

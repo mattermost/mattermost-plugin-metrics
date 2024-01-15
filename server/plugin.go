@@ -62,6 +62,8 @@ func (p *Plugin) OnActivate() error {
 	}
 	p.fileBackend = backend
 
+	p.closeChan = make(chan bool)
+	p.waitGroup = sync.WaitGroup{}
 	if p.configuration == nil {
 		p.configuration = new(configuration)
 		p.configuration.SetDefaults()
@@ -85,8 +87,6 @@ func (p *Plugin) OnActivate() error {
 
 	manager := scrape.NewManager(nil, p.logger, p.db)
 	syncCh := make(chan map[string][]*targetgroup.Group)
-	p.closeChan = make(chan bool)
-	p.waitGroup = sync.WaitGroup{}
 
 	// we start the manager first, then apply the scrape config
 	p.waitGroup.Add(1)
