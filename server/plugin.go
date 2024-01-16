@@ -58,9 +58,9 @@ func (p *Plugin) OnActivate() error {
 	p.waitGroup = sync.WaitGroup{}
 	
 	// we are using a mutually exclusive lock to run a single instance of this plugin
-	// we don't really need to collect metrics twice, in any case we can still collect
-	// twice, TSDB will takce care of overlapped blocks. But it will increase the disk
-	// writes to the remote or local disk.
+	// we don't really need to collect metrics twice: although TSDB will take care
+	// of overlapped blocks, it will increase the disk writes to the remote or local
+	// disk.
 	if p.isHA() {
 		var err error
 		p.singletonLock, err = cluster.NewMutex(p.API, "metrics")
@@ -176,7 +176,7 @@ func (p *Plugin) OnActivate() error {
 
 func (p *Plugin) OnDeactivate() error {
 	// the plugin mutex unlock panics if the lock was not acquired
-	// so we need to check whether if we actually acquired the lock
+	// so we need to check whether we actually acquired the lock
 	if p.isHA() && p.singletonLockAcquired {
 		defer p.singletonLock.Unlock()
 	}
