@@ -67,7 +67,7 @@ func copyFile(srcFile, dstFile string, wr WriterFunc) error {
 	return nil
 }
 
-func readFromFileStore(dst, src string, b filestore.FileBackend) error {
+func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 	if ok, err := b.FileExists(src); !ok {
 		return nil
 	} else if err != nil {
@@ -122,7 +122,7 @@ func readFromFileStore(dst, src string, b filestore.FileBackend) error {
 	}
 
 	for _, entry := range entries {
-		err := readFromFileStore(dst, entry, b)
+		err := copyFromFileStore(dst, entry, b)
 		if err != nil {
 			return err
 		}

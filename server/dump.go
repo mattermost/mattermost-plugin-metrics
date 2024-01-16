@@ -23,6 +23,8 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, zipFileName)
 	dumpDir := filepath.Join(PluginName, "dump")
 	for _, b := range blocks {
+		// read block meta from the remote filestore and decide if they are older than the
+		// retention period. If so, copy from file store.
 		meta, rErr := readBlockMeta(filepath.Join(b, metaFileName), p.fileBackend.ReadFile)
 		if rErr != nil {
 			// we intentionally log with debug level here, file store returns wrapped errors
@@ -35,7 +37,7 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		if metaMax.Before(max) && metaMax.After(min) {
 			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", max.String())
 
-			err = readFromFileStore(dumpDir, b, p.fileBackend)
+			err = copyFromFileStore(dumpDir, b, p.fileBackend)
 			if err != nil {
 				p.API.LogError("Error during fetching the block", "ulid", meta.ULID, "err", err)
 			}
