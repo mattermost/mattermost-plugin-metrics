@@ -56,7 +56,7 @@ func (p *Plugin) OnActivate() error {
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
-	
+
 	// we are using a mutually exclusive lock to run a single instance of this plugin
 	// we don't really need to collect metrics twice: although TSDB will take care
 	// of overlapped blocks, it will increase the disk writes to the remote or local
