@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -14,9 +16,12 @@ import (
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 
+	root "github.com/mattermost/mattermost-plugin-metrics"
+
 	mmModel "github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
 )
 
@@ -31,6 +36,10 @@ type Plugin struct {
 
 	// tsdbLock using mutual access to perform actions on tsdb.
 	tsdbLock sync.RWMutex
+
+	// singletonLock using mutually exclusive lock to run a single instance of the plugin
+	singletonLock         *cluster.Mutex
+	singletonLockAcquired bool
 
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
@@ -57,6 +66,34 @@ func (p *Plugin) OnActivate() error {
 	p.handler = newHandler(p)
 
 	appCfg := p.API.GetConfig()
+
+	p.closeChan = make(chan bool)
+	p.waitGroup = sync.WaitGroup{}
+
+	// we are using a mutually exclusive lock to run a single instance of this plugin
+	// we don't really need to collect metrics twice: although TSDB will take care
+	// of overlapped blocks, it will increase the disk writes to the remote or local
+	// disk.
+	if p.isHA() {
+		var err error
+		p.singletonLock, err = cluster.NewMutex(p.API, root.Manifest.Id)
+		if err != nil {
+			return err
+		}
+
+		// the constant '20' is determined by healthcheck of the plugin which is 30 seconds.
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		err = p.singletonLock.LockWithContext(ctx)
+		if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			p.API.LogDebug("Another instance of the plugin is running in another node with scraping mode. Skipping this one.")
+			return nil
+		} else if err != nil {
+			return err
+		}
+		p.singletonLockAcquired = true
+	}
+
 	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
 	if err != nil {
 		return fmt.Errorf("failed to initialize filebackend: %w", err)
@@ -191,6 +228,12 @@ func (p *Plugin) OnActivate() error {
 }
 
 func (p *Plugin) OnDeactivate() error {
+	// the plugin mutex unlock panics if the lock was not acquired
+	// so we need to check whether we actually acquired the lock
+	if p.isHA() && p.singletonLockAcquired {
+		defer p.singletonLock.Unlock()
+	}
+
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
 
