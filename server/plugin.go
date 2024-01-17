@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	root "github.com/mattermost/mattermost-plugin-metrics"
 
 	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
 )
@@ -25,6 +27,8 @@ import (
 // Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
 type Plugin struct {
 	plugin.MattermostPlugin
+
+	client *pluginapi.Client
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -50,10 +54,16 @@ type Plugin struct {
 	waitGroup sync.WaitGroup
 
 	logger log.Logger
+
+	handler *handler
 }
 
 func (p *Plugin) OnActivate() error {
+	p.client = pluginapi.NewClient(p.API, p.Driver)
 	p.logger = &metricsLogger{api: p.API}
+
+	p.handler = newHandler(p)
+
 	appCfg := p.API.GetConfig()
 
 	p.closeChan = make(chan bool)
@@ -89,6 +99,8 @@ func (p *Plugin) OnActivate() error {
 	}
 	p.fileBackend = backend
 
+	p.closeChan = make(chan bool)
+	p.waitGroup = sync.WaitGroup{}
 	if p.configuration == nil {
 		p.configuration = new(configuration)
 		p.configuration.SetDefaults()
@@ -196,4 +208,9 @@ func (p *Plugin) OnDeactivate() error {
 	}
 
 	return nil
+}
+
+// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
+func (p *Plugin) ServeHTTP(_ *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	p.handler.ServeHTTP(w, r)
 }
