@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 
+	root "github.com/mattermost/mattermost-plugin-metrics"
+
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/filestore"
@@ -63,7 +65,7 @@ func (p *Plugin) OnActivate() error {
 	// disk.
 	if p.isHA() {
 		var err error
-		p.singletonLock, err = cluster.NewMutex(p.API, "metrics")
+		p.singletonLock, err = cluster.NewMutex(p.API, root.Manifest.Id)
 		if err != nil {
 			return err
 		}
@@ -73,7 +75,7 @@ func (p *Plugin) OnActivate() error {
 		defer cancel()
 		err = p.singletonLock.LockWithContext(ctx)
 		if err != nil && errors.Is(err, context.DeadlineExceeded) {
-			p.API.LogDebug("Instance couldn't acquire the lock", "error", err.Error())
+			p.API.LogDebug("Another instance of the plugin is running in another node with scraping mode. Skipping this one.")
 			return nil
 		} else if err != nil {
 			return err
