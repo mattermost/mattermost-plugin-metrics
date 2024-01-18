@@ -64,8 +64,13 @@ func (p *Plugin) OnActivate() error {
 	p.logger = &metricsLogger{api: p.API}
 
 	p.handler = newHandler(p)
-
 	appCfg := p.API.GetConfig()
+
+	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
+	if err != nil {
+		return fmt.Errorf("failed to initialize filebackend: %w", err)
+	}
+	p.fileBackend = backend
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
@@ -93,12 +98,6 @@ func (p *Plugin) OnActivate() error {
 		}
 		p.singletonLockAcquired = true
 	}
-
-	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
-	if err != nil {
-		return fmt.Errorf("failed to initialize filebackend: %w", err)
-	}
-	p.fileBackend = backend
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}

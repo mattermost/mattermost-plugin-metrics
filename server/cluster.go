@@ -10,7 +10,13 @@ import (
 )
 
 func pingClusterDiscoveryTable(db *sql.DB, driverName, clusterName string) ([]*model.ClusterDiscovery, error) {
-	builder := squirrel.StatementBuilder.PlaceholderFormat(getQueryPlaceholder(driverName))
+	var phf squirrel.PlaceholderFormat
+	phf = squirrel.Question
+	if driverName == model.DatabaseDriverPostgres {
+		phf = squirrel.Dollar
+	}
+
+	builder := squirrel.StatementBuilder.PlaceholderFormat(phf)
 
 	query := builder.Select("Id,Hostname").From("ClusterDiscovery").
 		Where(squirrel.Eq{"Type": model.CDSTypeApp, "ClusterName": clusterName}).
@@ -37,13 +43,6 @@ func pingClusterDiscoveryTable(db *sql.DB, driverName, clusterName string) ([]*m
 	}
 
 	return list, nil
-}
-
-func getQueryPlaceholder(driverName string) squirrel.PlaceholderFormat {
-	if driverName == model.DatabaseDriverPostgres {
-		return squirrel.Dollar
-	}
-	return squirrel.Question
 }
 
 func topologyChanged(a, b []*model.ClusterDiscovery) bool {
