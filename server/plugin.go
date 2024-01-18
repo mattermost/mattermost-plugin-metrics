@@ -80,10 +80,10 @@ func (p *Plugin) OnActivate() error {
 	// of overlapped blocks, it will increase the disk writes to the remote or local
 	// disk.
 	if p.isHA() {
-		var err error
-		p.singletonLock, err = cluster.NewMutex(p.API, root.Manifest.Id)
-		if err != nil {
-			return err
+		var err2 error
+		p.singletonLock, err2 = cluster.NewMutex(p.API, root.Manifest.Id)
+		if err2 != nil {
+			return err2
 		}
 
 		// the constant '20' is determined by healthcheck of the plugin which is 30 seconds.
