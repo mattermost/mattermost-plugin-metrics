@@ -1,7 +1,8 @@
 package main
 
 import (
-	"archive/zip"
+	"archive/tar"
+	"compress/gzip"
 	"errors"
 	"io"
 	"io/fs"
@@ -131,64 +132,61 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 	return nil
 }
 
-func zipDirectory(sourceDir, zipFile string) error {
-	// Create a new zip file
-	newZipFile, err := os.Create(zipFile)
-	if err != nil {
-		return err
+func compressDirectory(sourceDir, compressedFile string) error {
+	// Create a new archive file
+	newZipFile, cErr := os.Create(compressedFile)
+	if cErr != nil {
+		return cErr
 	}
 	defer newZipFile.Close()
 
-	// Create a new zip writer
-	zipWriter := zip.NewWriter(newZipFile)
-	defer zipWriter.Close()
+	zr := gzip.NewWriter(newZipFile)
+	tw := tar.NewWriter(zr)
 
-	// Walk through the directory and add files to the zip archive
-	err = filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	// We will remove the srcDir from the file info later on
+	srcDir := sourceDir
 
-		// Create a file header based on the file info
-		fileHeader, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		// Modify the file header to use relative path
-		relPath, err := filepath.Rel(sourceDir, path)
-		if err != nil {
-			return err
-		}
-		fileHeader.Name = relPath
-
-		// Check if the file is a directory or a regular file
-		if info.IsDir() {
-			// Skip directories as they will be created implicitly
+	// Walk through the directory and add files to the archive
+	wErr := filepath.Walk(sourceDir, func(file string, fi os.FileInfo, _ error) error {
+		if fi.Mode().IsDir() {
 			return nil
 		}
 
-		// Create an entry in the zip file
-		fileWriter, err := zipWriter.CreateHeader(fileHeader)
+		newPath := file[len(srcDir):]
+
+		header, err := tar.FileInfoHeader(fi, newPath)
 		if err != nil {
 			return err
 		}
 
-		// Open the file for reading
-		fileToZip, err := os.Open(path)
+		header.Name = newPath
+		if err = tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		data, err := os.Open(file)
 		if err != nil {
 			return err
 		}
-		defer fileToZip.Close()
 
-		// Copy file contents to the zip entry
-		_, err = io.Copy(fileWriter, fileToZip)
-		if err != nil {
+		if _, err := io.Copy(tw, data); err != nil {
 			return err
 		}
 
 		return nil
 	})
 
-	return err
+	if wErr != nil {
+		return wErr
+	}
+
+	if err := tw.Close(); err != nil {
+		return err
+	}
+
+	if err := zr.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }

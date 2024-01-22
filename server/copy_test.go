@@ -1,10 +1,12 @@
 package main
 
 import (
-	"archive/zip"
+	"archive/tar"
+	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -109,11 +111,7 @@ func TestCopy(t *testing.T) {
 	})
 }
 
-func TestZipDirectory(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
+func TestCompressDirectory(t *testing.T) {
 	sampleFiles := []struct {
 		Name, Content string
 	}{
@@ -121,49 +119,62 @@ func TestZipDirectory(t *testing.T) {
 		{"subdir/file2.txt", "This is file 2."},
 	}
 
+	tempDir := filepath.Join(t.TempDir(), "compress")
 	for _, file := range sampleFiles {
 		filePath := filepath.Join(tempDir, file.Name)
 
-		err = os.MkdirAll(filepath.Dir(filePath), 0755)
+		err := os.MkdirAll(filepath.Dir(filePath), 0755)
 		require.NoError(t, err)
 
 		err = os.WriteFile(filePath, []byte(file.Content), 0600)
 		require.NoError(t, err)
 	}
 
-	zipFilePath := filepath.Join(tempDir, "test.zip")
-	err = zipDirectory(tempDir, zipFilePath)
+	zipFilePath := filepath.Join(t.TempDir(), "test.tar.gz")
+	err := compressDirectory(tempDir, zipFilePath)
 	require.NoError(t, err)
 
 	_, err = os.Stat(zipFilePath)
 	require.False(t, os.IsNotExist(err))
 
-	zipFile, err := zip.OpenReader(zipFilePath)
+	zipFile, err := os.Open(zipFilePath)
 	require.NoError(t, err)
 	defer zipFile.Close()
+
+	gzFile, err := gzip.NewReader(zipFile)
+	require.NoError(t, err)
+	defer gzFile.Close()
+
+	tr := tar.NewReader(gzFile)
 
 	expectedContents := map[string]string{
 		"file1.txt":        "This is file 1.",
 		"subdir/file2.txt": "This is file 2.",
 	}
 
-	for _, file := range zipFile.File {
-		if file.Name == "test.zip" {
-			continue // ignore root
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break // End of archive
 		}
-		content, ok := expectedContents[file.Name]
-		require.True(t, ok, file.Name)
-
-		expectedContent := []byte(content)
-		zippedFile, err := file.Open()
 		require.NoError(t, err)
-		defer zippedFile.Close()
 
-		zippedContent, err := io.ReadAll(zippedFile)
+		// we only care about regular files in this test
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+
+		// the header has a trailing slash, gotta remove
+		fileName := strings.TrimPrefix(header.Name, "/")
+		content, ok := expectedContents[fileName]
+		require.True(t, ok)
+		expectedContent := []byte(content)
+
+		zippedContent, err := io.ReadAll(tr)
 		require.NoError(t, err)
 		require.Equal(t, expectedContent, zippedContent)
 
-		delete(expectedContents, file.Name)
+		delete(expectedContents, fileName)
 	}
 
 	require.Empty(t, expectedContents)

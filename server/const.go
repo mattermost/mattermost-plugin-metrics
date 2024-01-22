@@ -6,6 +6,6 @@ const (
 	metaFileName   = "meta.json"
 	metaVersion1   = 1
 	pluginDataDir  = "plugin-data"
-	zipFileName    = "tsdb_dump.zip"
+	zipFileName    = "tsdb_dump.tar.gz"
 	MaxRequestSize = 5 * 1024 * 1024 // 5MB
 )
