@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20231202071711-9a357b53e9c9
 	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.1
+	github.com/jmoiron/sqlx v1.3.5
 	github.com/mattermost/mattermost/server/public v0.0.12
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20240111182452-4d96c11314f4
 	github.com/mattermost/squirrel v0.4.0

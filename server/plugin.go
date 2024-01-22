@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/units"
 	"github.com/go-kit/log"
+	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -164,18 +165,20 @@ func (p *Plugin) OnActivate() error {
 			ticker := time.NewTicker(time.Minute)
 			defer ticker.Stop()
 
-			db, err := p.client.Store.GetMasterDB()
+			idb, err := p.client.Store.GetMasterDB()
 			if err != nil {
 				p.API.LogError("Could not initiate the database connection", "error", err.Error())
 				return
 			}
+			db := sqlx.NewDb(idb, p.client.Store.DriverName())
 			defer db.Close()
+
 			var currentList []*mmModel.ClusterDiscovery
 
 			for {
 				select {
 				case <-ticker.C:
-					list, err := pingClusterDiscoveryTable(db, p.client.Store.DriverName(), *p.API.GetConfig().ClusterSettings.ClusterName)
+					list, err := pingClusterDiscoveryTable(db, *p.API.GetConfig().ClusterSettings.ClusterName)
 					if err != nil {
 						p.API.LogError("Could not ping the cluster discovery table", "error", err.Error())
 						return
