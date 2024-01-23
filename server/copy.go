@@ -141,7 +141,10 @@ func compressDirectory(sourceDir, compressedFile string) error {
 	defer newZipFile.Close()
 
 	zr := gzip.NewWriter(newZipFile)
+	defer zr.Close()
+
 	tw := tar.NewWriter(zr)
+	defer tw.Close()
 
 	// We will remove the srcDir from the file info later on
 	srcDir := sourceDir
@@ -178,14 +181,6 @@ func compressDirectory(sourceDir, compressedFile string) error {
 
 	if wErr != nil {
 		return wErr
-	}
-
-	if err := tw.Close(); err != nil {
-		return err
-	}
-
-	if err := zr.Close(); err != nil {
-		return err
 	}
 
 	return nil

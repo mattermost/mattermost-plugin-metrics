@@ -43,9 +43,11 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		}
 	}
 
+	// In order to save up space, we increase the maximum block duration to 6 hours (default is 2)
+	// so that we can increase the compaction.
 	db, err := tsdb.Open(dumpDir, p.logger, nil, &tsdb.Options{
-		MinBlockDuration:           int64(2 * time.Hour / time.Millisecond),
-		MaxBlockDuration:           int64(6 * time.Hour / time.Millisecond),
+		MinBlockDuration:           tsdb.DefaultBlockDuration,
+		MaxBlockDuration:           3 * tsdb.DefaultBlockDuration,
 		AllowOverlappingCompaction: true,
 	}, nil)
 	if err != nil {
