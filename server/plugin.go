@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/units"
 	"github.com/go-kit/log"
+	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
@@ -18,6 +19,7 @@ import (
 
 	root "github.com/mattermost/mattermost-plugin-metrics"
 
+	mmModel "github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
@@ -63,8 +65,13 @@ func (p *Plugin) OnActivate() error {
 	p.logger = &metricsLogger{api: p.API}
 
 	p.handler = newHandler(p)
-
 	appCfg := p.API.GetConfig()
+
+	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
+	if err != nil {
+		return fmt.Errorf("failed to initialize filebackend: %w", err)
+	}
+	p.fileBackend = backend
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
@@ -74,10 +81,10 @@ func (p *Plugin) OnActivate() error {
 	// of overlapped blocks, it will increase the disk writes to the remote or local
 	// disk.
 	if p.isHA() {
-		var err error
-		p.singletonLock, err = cluster.NewMutex(p.API, root.Manifest.Id)
-		if err != nil {
-			return err
+		var err2 error
+		p.singletonLock, err2 = cluster.NewMutex(p.API, root.Manifest.Id)
+		if err2 != nil {
+			return err2
 		}
 
 		// the constant '20' is determined by healthcheck of the plugin which is 30 seconds.
@@ -92,12 +99,6 @@ func (p *Plugin) OnActivate() error {
 		}
 		p.singletonLockAcquired = true
 	}
-
-	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
-	if err != nil {
-		return fmt.Errorf("failed to initialize filebackend: %w", err)
-	}
-	p.fileBackend = backend
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
@@ -154,18 +155,58 @@ func (p *Plugin) OnActivate() error {
 	}
 	manager.ApplyConfig(scpCfg)
 
-	sync, err := generateTargetGroup(p.API.GetConfig(), nil)
-	if err != nil {
-		return fmt.Errorf("could not set scrape target :%w", err)
-	}
-	syncCh <- sync
-
-	// check if cluster is enabled
 	if p.isHA() {
-		// TODO(isacikgoz): get cluster info
-		// we will need to push new cluster layout to p.clusterCh by either polling the cluster table
-		// or listening the cluster event messages
-		p.API.LogWarn("cluster meterics is not enabled")
+		p.waitGroup.Add(1)
+		go func() {
+			defer p.waitGroup.Done()
+
+			// a minute should be the smallest amount of time to ping the table
+			// as the default scrape interval is already a minute.
+			ticker := time.NewTicker(time.Minute)
+			defer ticker.Stop()
+
+			idb, err := p.client.Store.GetMasterDB()
+			if err != nil {
+				p.API.LogError("Could not initiate the database connection", "error", err.Error())
+				return
+			}
+			db := sqlx.NewDb(idb, p.client.Store.DriverName())
+			defer db.Close()
+
+			var currentList []*mmModel.ClusterDiscovery
+
+			for {
+				select {
+				case <-ticker.C:
+					list, err := pingClusterDiscoveryTable(db, *p.API.GetConfig().ClusterSettings.ClusterName)
+					if err != nil {
+						p.API.LogError("Could not ping the cluster discovery table", "error", err.Error())
+						return
+					}
+
+					if !topologyChanged(currentList, list) {
+						continue
+					}
+					currentList = list
+
+					sync, err := generateTargetGroup(p.API.GetConfig(), list)
+					if err != nil {
+						p.API.LogError("Could not genarate target group for cluster", "error", err.Error())
+						return
+					}
+					syncCh <- sync
+				case <-p.closeChan:
+					p.API.LogDebug("Cluster ping process stopped")
+					return
+				}
+			}
+		}()
+	} else {
+		sync, err := generateTargetGroup(p.API.GetConfig(), nil)
+		if err != nil {
+			return fmt.Errorf("could not set scrape target :%w", err)
+		}
+		syncCh <- sync
 	}
 
 	// this goroutine will need to be re-structurd to listen a more channels
