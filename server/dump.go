@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-kit/log"
 	"github.com/prometheus/prometheus/tsdb"
 )
 
@@ -44,7 +43,13 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		}
 	}
 
-	db, err := tsdb.Open(dumpDir, log.NewNopLogger(), nil, tsdb.DefaultOptions(), nil)
+	// In order to save up space, we increase the maximum block duration to 6 hours (default is 2)
+	// so that we can increase the compaction.
+	db, err := tsdb.Open(dumpDir, p.logger, nil, &tsdb.Options{
+		MinBlockDuration:           tsdb.DefaultBlockDuration,
+		MaxBlockDuration:           3 * tsdb.DefaultBlockDuration,
+		AllowOverlappingCompaction: true,
+	}, nil)
 	if err != nil {
 		return "", err
 	}
@@ -56,17 +61,12 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		return "", err
 	}
 
-	err = db.CleanTombstones()
-	if err != nil {
-		return "", err
-	}
-
 	err = db.Close()
 	if err != nil {
 		return "", err
 	}
 
-	err = zipDirectory(dumpDir, zipFileName)
+	err = compressDirectory(dumpDir, zipFileName)
 	if err != nil {
 		return "", err
 	}
