@@ -9,6 +9,9 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/prometheus/prometheus/tsdb"
+	"gopkg.in/yaml.v3"
+
+	root "github.com/mattermost/mattermost-plugin-metrics"
 )
 
 func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStorageDir string) (string, error) {
@@ -66,6 +69,11 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		return "", err
 	}
 
+	_, err = p.genarateMetadataForDump(filepath.Join(dumpDir, "metadata.yaml"), min, max)
+	if err != nil {
+		return "", err
+	}
+
 	err = zipDirectory(dumpDir, zipFileName)
 	if err != nil {
 		return "", err
@@ -89,4 +97,53 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 	}
 
 	return zipFileNameRemote, nil
+}
+
+// Metadata is the auxiliary data added to a plugin downloadable.
+// It should contain the required fields and may have it's custom values as well.
+// TODO: move this to mattermost/server/public/pluginapi in the future
+type metadata struct {
+	ServerVersion string         `yaml:"server_version"`
+	ServerID      string         `yaml:"server_id"`
+	LicenseID     string         `yaml:"license_id"`
+	PluginID      string         `yaml:"plugin_id"`
+	Custom        map[string]any `yaml:"custom"`
+}
+
+func (p *Plugin) genarateMetadataForDump(path string, min, max time.Time) (*metadata, error) {
+	m := &metadata{}
+	if l := p.API.GetLicense(); l != nil {
+		m.LicenseID = l.Id
+	}
+
+	m.ServerVersion = p.API.GetServerVersion()
+	m.ServerID = p.API.GetTelemetryId()
+	m.PluginID = root.Manifest.Id
+
+	// Add plugin specific metadata
+	customMetadata := map[string]any{
+		"generated": time.Now().Format(time.RFC822),
+		"min":       min.UnixMilli(),
+		"max":       max.UnixMilli(),
+	}
+
+	m.Custom = customMetadata
+
+	b, err := yaml.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	_, err = f.Write(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
