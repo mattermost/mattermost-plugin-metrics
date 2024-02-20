@@ -209,9 +209,6 @@ func (p *Plugin) OnActivate() error {
 		syncCh <- sync
 	}
 
-	// this goroutine will need to be re-structurd to listen a more channels
-	// once we start supporting HA, we will need to listen the cluster change channel and
-	// convert the []mmodel.ClusterDiscovery entries into map[string][]*targetgroup.Group
 	p.waitGroup.Add(1)
 	go func() {
 		defer p.waitGroup.Done()
