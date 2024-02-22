@@ -23,7 +23,8 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 	dumpDir := filepath.Join(PluginName, "dump")
 	for _, b := range blocks {
 		// read block meta from the remote filestore and decide if they are older than the
-		// retention period. If so, copy from file store.
+		// retention period. If they are within the retention period, copy the data
+		// from the file store. Blocks older than the retention period are not copied.
 		meta, rErr := readBlockMeta(filepath.Join(b, metaFileName), p.fileBackend.ReadFile)
 		if rErr != nil {
 			// we intentionally log with debug level here, file store returns wrapped errors
