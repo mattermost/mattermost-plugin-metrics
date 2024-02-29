@@ -69,9 +69,7 @@ func copyFile(srcFile, dstFile string, wr WriterFunc) error {
 }
 
 func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
-	if ok, err := b.FileExists(src); !ok {
-		return nil
-	} else if err != nil {
+	if _, err := b.FileExists(src); err != nil {
 		return err
 	}
 
@@ -82,8 +80,14 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 
 	entries, listErr := b.ListDirectory(src)
 	var pathError *fs.PathError
-	if listErr != nil && errors.As(listErr, &pathError) {
-		// means that this is a single file, copy the file to the local store
+	if (listErr != nil && errors.As(listErr, &pathError)) || len(entries) == 0 {
+		// in s3 we should check whether the enrty count is 0 because
+		// the API doesn't return an error if the object is a file.
+		// something to check further with https://mattermost.atlassian.net/browse/MM-57034
+		//
+		// For local filesstore, we know that we would get a path error and that
+		// means that this is a single file. Alternatively, we can improve the API by adding
+		// additional IsDirectory method.
 		reader, err := b.Reader(src)
 		if err != nil {
 			return err
@@ -97,7 +101,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 		if err != nil {
 			return err
 		}
-		f, err := os.Create(fileDest)
+		f, err := os.OpenFile(fileDest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0660)
 		if err != nil {
 			return err
 		}
@@ -134,7 +138,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 
 func compressDirectory(sourceDir, compressedFile string) error {
 	// Create a new archive file
-	newZipFile, cErr := os.Create(compressedFile)
+	newZipFile, cErr := os.OpenFile(compressedFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0750)
 	if cErr != nil {
 		return cErr
 	}
