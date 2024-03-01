@@ -74,14 +74,14 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 	}
 
 	// create the dest parent if necessary
-	if err := os.MkdirAll(dst, 0750); err != nil {
+	if err := os.MkdirAll(dst, 0740); err != nil {
 		return err
 	}
 
 	entries, listErr := b.ListDirectory(src)
 	var pathError *fs.PathError
 	if (listErr != nil && errors.As(listErr, &pathError)) || len(entries) == 0 {
-		// in s3 we should check whether the enrty count is 0 because
+		// in s3 we should check whether the entry count is 0 because
 		// the API doesn't return an error if the object is a file.
 		// something to check further with https://mattermost.atlassian.net/browse/MM-57034
 		//
@@ -97,11 +97,11 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 		fileDest := filepath.Join(dst, strings.TrimPrefix(src, trim))
 
 		// create parent if there is no directory
-		err = os.MkdirAll(filepath.Dir(fileDest), 0750)
+		err = os.MkdirAll(filepath.Dir(fileDest), 0740)
 		if err != nil {
 			return err
 		}
-		f, err := os.OpenFile(fileDest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0660)
+		f, err := os.OpenFile(fileDest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
@@ -120,7 +120,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 		trim := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
 		fileDest := filepath.Join(dst, strings.TrimPrefix(src, trim))
 
-		err := os.MkdirAll(fileDest, 0750)
+		err := os.MkdirAll(fileDest, 0740)
 		if err != nil {
 			return err
 		}
@@ -138,7 +138,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 
 func compressDirectory(sourceDir, compressedFile string) error {
 	// Create a new archive file
-	newZipFile, cErr := os.OpenFile(compressedFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0750)
+	newZipFile, cErr := os.OpenFile(compressedFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if cErr != nil {
 		return cErr
 	}
