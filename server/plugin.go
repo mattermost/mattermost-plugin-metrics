@@ -65,9 +65,18 @@ func (p *Plugin) OnActivate() error {
 	p.logger = &metricsLogger{api: p.API}
 
 	p.handler = newHandler(p)
-	appCfg := p.API.GetConfig()
 
-	backend, err := filestore.NewFileBackend(filestore.NewFileBackendSettingsFromConfig(&appCfg.FileSettings, false, false))
+	fileSettings := &p.API.GetUnsanitizedConfig().FileSettings
+	fileSettings.SetDefaults(false) // some fields are nil, we should set those to default
+
+	// since this is true by default, and it will be true if it's actually false.
+	// see the discussion here: https://community.mattermost.com/core/pl/abd58h1majrx8y4xc9qrhtia9h
+	if p.API.GetConfig().FileSettings.AmazonS3SSL == nil {
+		fileSettings.AmazonS3SSL = mmModel.NewBool(false)
+	}
+
+	fileBackendSettings := filestore.NewFileBackendSettingsFromConfig(fileSettings, false, true)
+	backend, err := filestore.NewFileBackend(fileBackendSettings)
 	if err != nil {
 		return fmt.Errorf("failed to initialize filebackend: %w", err)
 	}
