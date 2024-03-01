@@ -4,10 +4,10 @@
     "description": "This plugin serves as a openmetrics scraper for Mattermost. It can be used to store metrics data without Prometheus.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-metrics",
     "support_url": "https://github.com/mattermost/mattermost-plugin-metrics/issues",
-    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-metrics/releases/tag/v0.1.0",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-metrics/releases/tag/v0.2.0",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.1.0",
-    "min_server_version": "6.2.1",
+    "version": "0.2.0",
+    "min_server_version": "6.3.0",
     "server": {
         "executables": {
             "linux-amd64": "server/dist/plugin-linux-amd64",
