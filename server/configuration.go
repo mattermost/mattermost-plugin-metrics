@@ -27,7 +27,7 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	DBPath                         *string
+	DBPath                         *string `json:"dbpath"`
 	AllowOverlappingCompaction     *bool
 	EnableMemorySnapshotOnShutdown *bool
 	BodySizeLimitBytes             *int64
