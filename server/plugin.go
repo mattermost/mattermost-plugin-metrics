@@ -61,6 +61,10 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+	if err := p.loadConfig(); err != nil {
+		return fmt.Errorf("could not load plugin config: %w", err)
+	}
+
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 	p.logger = &metricsLogger{api: p.API}
 
@@ -114,10 +118,6 @@ func (p *Plugin) OnActivate() error {
 	if p.configuration == nil {
 		p.configuration = new(configuration)
 		p.configuration.SetDefaults()
-	}
-
-	if err = p.configuration.IsValid(); err != nil {
-		return fmt.Errorf("could not validate config: %w", err)
 	}
 
 	// initiate local tsdb

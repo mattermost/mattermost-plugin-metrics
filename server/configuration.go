@@ -49,6 +49,8 @@ type configuration struct {
 	FileStoreSyncPeriodMinutes *int
 	// FileStoreCleanupPeriodMinutes is the period to run cleanup job in the filestore
 	FileStoreCleanupPeriodMinutes *int
+	// CollectMetricsFrom is the period to collect metrics to create the dump
+	CollectMetricsFrom *string `json:"collect_metrics_from"`
 }
 
 func (c *configuration) SetDefaults() {
@@ -90,6 +92,9 @@ func (c *configuration) SetDefaults() {
 	}
 	if c.FileStoreCleanupPeriodMinutes == nil {
 		c.FileStoreCleanupPeriodMinutes = model.NewInt(120)
+	}
+	if c.CollectMetricsFrom == nil {
+		c.CollectMetricsFrom = model.NewString("3_days")
 	}
 }
 

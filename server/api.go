@@ -8,8 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	root "github.com/mattermost/mattermost-plugin-metrics"
-
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/web"
 )
@@ -56,14 +54,8 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 }
 
 func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
-	appCfg := h.plugin.API.GetConfig()
-	metricsFrom, ok := appCfg.PluginSettings.Plugins[root.Manifest.Id]["collect_metrics_from"]
-	if !ok {
-		// set it to the default value if the setting is not there
-		metricsFrom = "yesterday"
-	}
 	var days int
-	switch metricsFrom {
+	switch *h.plugin.configuration.CollectMetricsFrom {
 	case "yesterday":
 		days = -1
 	case "3_days":
@@ -85,9 +77,9 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		err := h.plugin.fileBackend.RemoveDirectory(fp)
-		if err != nil {
-			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", err.Error())
+		fErr := h.plugin.fileBackend.RemoveDirectory(fp)
+		if fErr != nil {
+			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", fErr.Error())
 		}
 	}()
 
@@ -98,5 +90,6 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	appCfg := h.plugin.API.GetConfig()
 	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, bytes.NewReader(b), true, w, r)
 }
