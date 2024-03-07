@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -77,19 +77,20 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() {
-		fErr := h.plugin.fileBackend.RemoveDirectory(fp)
+		fErr := os.RemoveAll(filepath.Dir(fp))
 		if fErr != nil {
 			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", fErr.Error())
 		}
 	}()
 
-	b, err := h.plugin.fileBackend.ReadFile(fp)
+	f, err := os.Open(fp)
 	if err != nil {
 		h.plugin.API.LogError("Failed to read dump file", "error", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer f.Close()
 
 	appCfg := h.plugin.API.GetConfig()
-	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, bytes.NewReader(b), true, w, r)
+	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, f, true, w, r)
 }
