@@ -50,7 +50,7 @@ type configuration struct {
 	// FileStoreCleanupPeriodMinutes is the period to run cleanup job in the filestore
 	FileStoreCleanupPeriodMinutes *int
 	// CollectMetricsFrom is the period to collect metrics to create the dump
-	CollectMetricsFrom *string `json:"collect_metrics_from"`
+	CollectMetricsFrom *string `json:"collectmetricsfrom"`
 }
 
 func (c *configuration) SetDefaults() {
