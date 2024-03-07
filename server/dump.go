@@ -19,8 +19,14 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		return "", errors.New("no blocks in the remote sotrage")
 	}
 
-	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, zipFileName)
-	dumpDir := filepath.Join(PluginName, "dump")
+	// we generate everything under a new directory to avoid conflicts
+	// between simultaneous downloads
+	tempDir := model.NewId()
+	tempZipFile := tempDir + zipFileName
+
+	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, tempZipFile)
+
+	dumpDir := filepath.Join(PluginName, "dump", tempDir)
 	for _, b := range blocks {
 		// read block meta from the remote filestore and decide if they are older than the
 		// retention period. If they are within the retention period, copy the data
@@ -67,18 +73,18 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 		return "", err
 	}
 
-	err = compressDirectory(dumpDir, zipFileName)
+	err = compressDirectory(dumpDir, tempZipFile)
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(zipFileName)
+	defer os.Remove(tempZipFile)
 
 	err = os.RemoveAll(dumpDir)
 	if err != nil {
 		return "", err
 	}
 
-	f, err := os.Open(zipFileName)
+	f, err := os.Open(tempZipFile)
 	if err != nil {
 		return "", err
 	}

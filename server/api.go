@@ -59,8 +59,8 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 	appCfg := h.plugin.API.GetConfig()
 	metricsFrom, ok := appCfg.PluginSettings.Plugins[root.Manifest.Id]["collect_metrics_from"]
 	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		// set it to the default value if the setting is not there
+		metricsFrom = "yesterday"
 	}
 	var days int
 	switch metricsFrom {
@@ -84,6 +84,12 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer func() {
+		err := h.plugin.fileBackend.RemoveDirectory(fp)
+		if err != nil {
+			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", err.Error())
+		}
+	}()
 
 	b, err := h.plugin.fileBackend.ReadFile(fp)
 	if err != nil {
