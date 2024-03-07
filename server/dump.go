@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/prometheus/prometheus/tsdb"
 )
 
