@@ -239,6 +239,7 @@ func (p *Plugin) OnDeactivate() error {
 	// the plugin mutex unlock panics if the lock was not acquired
 	// so we need to check whether we actually acquired the lock
 	if p.isHA() && p.singletonLockAcquired {
+		defer p.client.Store.Close()
 		defer p.singletonLock.Unlock()
 	}
 
