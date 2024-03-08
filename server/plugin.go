@@ -115,16 +115,12 @@ func (p *Plugin) OnActivate() error {
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
-	if p.configuration == nil {
-		p.configuration = new(configuration)
-		p.configuration.SetDefaults()
-	}
 
 	// initiate local tsdb
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
 	p.db, err = tsdb.Open(*p.configuration.DBPath, p.logger, nil, &tsdb.Options{
-		RetentionDuration:              int64(localRetentionDays * 24 * time.Hour / time.Millisecond),
+		RetentionDuration:              int64(localRetentionDays / time.Millisecond),
 		AllowOverlappingCompaction:     *p.configuration.AllowOverlappingCompaction,
 		EnableMemorySnapshotOnShutdown: *p.configuration.EnableMemorySnapshotOnShutdown,
 	}, nil)

@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 const (
 	PluginName         = "mattermost-plugin-metrics"
 	tsdbDirName        = "data"
@@ -8,5 +10,5 @@ const (
 	pluginDataDir      = "plugin-data"
 	zipFileName        = "tsdb_dump.tar.gz"
 	MaxRequestSize     = 5 * 1024 * 1024 // 5MB
-	localRetentionDays = 3
+	localRetentionDays = 3 * 24 * time.Hour
 )
