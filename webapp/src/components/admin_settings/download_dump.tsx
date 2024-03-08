@@ -16,7 +16,7 @@ export const DownloadDump = () => {
                     href={`${Client4.getUrl()}/plugins/${manifest.id}/download`}
                     rel='noopener noreferrer'
                 >
-                <span className='icon icon-download-outline'/>
+                    <span className='icon icon-download-outline'/>
                     {'Download Dump'}
                 </a>
             </div>
