@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/gorilla/mux"
-
-	root "github.com/mattermost/mattermost-plugin-metrics"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/v8/platform/shared/web"
@@ -56,14 +54,8 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 }
 
 func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
-	appCfg := h.plugin.API.GetConfig()
-	metricsFrom, ok := appCfg.PluginSettings.Plugins[root.Manifest.Id]["collect_metrics_from"]
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	var days int
-	switch metricsFrom {
+	switch *h.plugin.configuration.CollectMetricsFrom {
 	case "yesterday":
 		days = -1
 	case "3_days":
@@ -84,13 +76,21 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer func() {
+		fErr := os.RemoveAll(filepath.Dir(fp))
+		if fErr != nil {
+			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", fErr.Error())
+		}
+	}()
 
-	b, err := h.plugin.fileBackend.ReadFile(fp)
+	f, err := os.Open(fp)
 	if err != nil {
 		h.plugin.API.LogError("Failed to read dump file", "error", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer f.Close()
 
-	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, bytes.NewReader(b), true, w, r)
+	appCfg := h.plugin.API.GetConfig()
+	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, f, true, w, r)
 }
