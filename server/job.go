@@ -64,7 +64,7 @@ func (p *Plugin) CreateJob(ctx context.Context, min, max int64) (*DumpJob, error
 
 	b, appErr := p.API.KVGet(KVStoreJobKey)
 	if appErr != nil {
-		return nil, fmt.Errorf("could not retreive jobs: %w", appErr)
+		return nil, fmt.Errorf("could not retrieve jobs: %w", appErr)
 	}
 
 	// var jobsRaw map[string]json.RawMessage
@@ -101,7 +101,7 @@ func (p *Plugin) GetAllJobs(ctx context.Context) (map[string]*DumpJob, error) {
 
 	b, appErr := p.API.KVGet(KVStoreJobKey)
 	if appErr != nil {
-		return nil, fmt.Errorf("could not retreive jobs: %w", appErr)
+		return nil, fmt.Errorf("could not retrieve jobs: %w", appErr)
 	}
 
 	var jobs map[string]*DumpJob
@@ -122,7 +122,7 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 
 	b, appErr := p.API.KVGet(KVStoreJobKey)
 	if appErr != nil {
-		return fmt.Errorf("could not retreive jobs: %w", appErr)
+		return fmt.Errorf("could not retrieve jobs: %w", appErr)
 	}
 
 	var jobs map[string]*DumpJob
