@@ -58,6 +58,8 @@ type Plugin struct {
 	logger log.Logger
 
 	handler *handler
+
+	jobManager *JobManager
 }
 
 func (p *Plugin) OnActivate() error {
@@ -88,6 +90,13 @@ func (p *Plugin) OnActivate() error {
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
+
+	p.jobManager = &JobManager{
+		ticker:    time.NewTicker(jobManagerTick),
+		closeChan: make(chan bool),
+		plugin:    p,
+	}
+	go p.jobManager.run(context.TODO())
 
 	// we are using a mutually exclusive lock to run a single instance of this plugin
 	// we don't really need to collect metrics twice: although TSDB will take care
@@ -238,6 +247,8 @@ func (p *Plugin) OnDeactivate() error {
 		defer p.client.Store.Close()
 		defer p.singletonLock.Unlock()
 	}
+
+	p.jobManager.stop()
 
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
