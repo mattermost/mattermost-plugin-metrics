@@ -33,7 +33,7 @@ func newHandler(plugin *Plugin) *handler {
 	jobs := root.PathPrefix("/jobs").Subrouter()
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
 	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
-	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete)
+	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete, http.MethodGet)
 
 	handler.router = root
 
@@ -78,7 +78,7 @@ func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
 	max := time.Now()
 
 	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	fp, err := h.plugin.createDump(r.Context(), min, max, remoteStorageDir)
+	fp, err := h.plugin.createDump(r.Context(), model.NewId(), min, max, remoteStorageDir)
 	if err != nil {
 		h.plugin.API.LogError("Failed to created dump", "error", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -151,7 +151,7 @@ func (h *handler) deleteJobHandler(w http.ResponseWriter, r *http.Request) {
 func (h *handler) getAllJobsHandler(w http.ResponseWriter, r *http.Request) {
 	jobs, err := h.plugin.GetAllJobs(r.Context())
 	if err != nil {
-		h.plugin.API.LogError("error while job create request", "err", err)
+		h.plugin.API.LogError("error while job list request", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

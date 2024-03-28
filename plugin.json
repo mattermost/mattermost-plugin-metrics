@@ -29,34 +29,9 @@
                 "default":"mattermost-plugin-metrics/data"
             },
             {
-                "key": "CollectMetricsFrom",
-                "display_name": "Collect metrics from",
-                "type": "dropdown",
-                "help_text": "Select the length of the metrics to be downloaded, consider saving the changes before download.",
-                "default": "last_week",
-                "options": [
-                    {
-                        "display_name": "Yesterday",
-                        "value": "yesterday"
-                    },
-                    {
-                        "display_name": "Last 3 days",
-                        "value": "3_days"
-                    },
-                    {
-                        "display_name": "Last week",
-                        "value": "last_week"
-                    },
-                    {
-                        "display_name": "Last 2 weeks",
-                        "value": "2_weeks"
-                    }
-                ]
-            },
-            {
-                "key": "DownloadDump",
+                "key": "Dumps",
                 "type": "custom",
-                "display_name": "Download Dump:"
+                "display_name": "Dump Table:"
             }
         ]
     }

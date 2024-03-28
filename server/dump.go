@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/prometheus/prometheus/tsdb"
 )
 
-func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStorageDir string) (string, error) {
+func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, remoteStorageDir string) (string, error) {
 	// get the blocks if there is any block in the remote filestore
 	blocks, err := p.fileBackend.ListDirectory(remoteStorageDir)
 	if err != nil {
@@ -22,9 +21,7 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 
 	// we generate everything under a new directory to avoid conflicts
 	// between simultaneous downloads
-	tempDir := model.NewId()
-
-	dumpDir := filepath.Join(PluginName, "dump", tempDir, "data")
+	dumpDir := filepath.Join("dump", id, "data")
 	tempZipFile := filepath.Join(filepath.Dir(dumpDir), zipFileName)
 
 	for _, b := range blocks {
@@ -77,11 +74,24 @@ func (p *Plugin) createDump(ctx context.Context, min, max time.Time, remoteStora
 	if err != nil {
 		return "", err
 	}
+	defer os.Remove(tempZipFile)
 
 	err = os.RemoveAll(dumpDir)
 	if err != nil {
 		return "", err
 	}
 
-	return tempZipFile, nil
+	f, err := os.Open(tempZipFile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, tempZipFile)
+	_, err = p.fileBackend.WriteFile(f, zipFileNameRemote)
+	if err != nil {
+		return "", err
+	}
+
+	return zipFileNameRemote, nil
 }
