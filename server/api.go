@@ -156,10 +156,11 @@ func (h *handler) downloadJobHandler(w http.ResponseWriter, r *http.Request) {
 
 	fr, err := h.plugin.fileBackend.Reader(job.DumpLocation)
 	if err != nil {
-		h.plugin.API.LogError("error while job download request", "err", err)
+		h.plugin.API.LogError("error while acquiring the file reader", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer fr.Close()
 
 	appCfg := h.plugin.API.GetConfig()
 	web.WriteFileResponse(filepath.Base(job.DumpLocation), "application/zip", 0, time.Now(), *appCfg.ServiceSettings.WebserverMode, fr, true, w, r)
