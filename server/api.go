@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -28,12 +27,11 @@ func newHandler(plugin *Plugin) *handler {
 	root := mux.NewRouter()
 	root.Use(handler.authorized)
 
-	root.HandleFunc("/download", handler.downloadDumpHandler).Methods(http.MethodGet)
-
 	jobs := root.PathPrefix("/jobs").Subrouter()
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
 	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
-	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete, http.MethodGet)
+	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete)
+	jobs.HandleFunc("/download/{id:[A-Za-z0-9]+}", handler.downloadJobHandler).Methods(http.MethodGet)
 
 	handler.router = root
 
@@ -59,48 +57,6 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
-	var days int
-	switch *h.plugin.configuration.CollectMetricsFrom {
-	case "yesterday":
-		days = -1
-	case "3_days":
-		days = -3
-	case "last_week":
-		days = -7
-	case "2_weeks":
-		days = -14
-	}
-
-	min := time.Now().AddDate(0, 0, days)
-	max := time.Now()
-
-	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	fp, err := h.plugin.createDump(r.Context(), model.NewId(), min, max, remoteStorageDir)
-	if err != nil {
-		h.plugin.API.LogError("Failed to created dump", "error", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer func() {
-		fErr := os.RemoveAll(filepath.Dir(fp))
-		if fErr != nil {
-			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", fErr.Error())
-		}
-	}()
-
-	f, err := os.Open(fp)
-	if err != nil {
-		h.plugin.API.LogError("Failed to read dump file", "error", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer f.Close()
-
-	appCfg := h.plugin.API.GetConfig()
-	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, f, true, w, r)
 }
 
 type JobCreateRequest struct {
@@ -175,4 +131,36 @@ func (h *handler) getAllJobsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(b)
+}
+
+func (h *handler) downloadJobHandler(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if !model.IsValidId(id) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	jobs, err := h.plugin.GetAllJobs(r.Context())
+	if err != nil {
+		h.plugin.API.LogError("error while job list request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	job, ok := jobs[id]
+	if !ok {
+		h.plugin.API.LogError("could not find job", "id", id)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	fr, err := h.plugin.fileBackend.Reader(job.DumpLocation)
+	if err != nil {
+		h.plugin.API.LogError("error while job download request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	appCfg := h.plugin.API.GetConfig()
+	web.WriteFileResponse(filepath.Base(job.DumpLocation), "application/zip", 0, time.Now(), *appCfg.ServiceSettings.WebserverMode, fr, true, w, r)
 }

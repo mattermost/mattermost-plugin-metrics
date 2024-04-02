@@ -163,6 +163,11 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 		p.scheduler.Cancel(id)
 		return nil
 	}
+	err = p.fileBackend.RemoveDirectory(filepath.Dir(jobs[id].DumpLocation))
+	if err != nil {
+		return err
+	}
+	p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
 
 	delete(jobs, id)
 

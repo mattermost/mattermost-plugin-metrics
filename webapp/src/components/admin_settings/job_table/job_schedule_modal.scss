@@ -6,6 +6,14 @@
     padding: 8px;
 }
 
+.buttonRow {
+    margin: 24px 24px,
+}
+
+.btn {
+    gap: 0px,
+}
+
 .date-picker__popper {
     padding: 12px;
     border: 1px solid rgba(var(--center-channel-color-rgb), 0.08);

@@ -4,13 +4,11 @@ import {GlobalState} from '@mattermost/types/lib/store';
 
 import {manifest} from '@/manifest';
 
-import {DownloadDump} from './components/admin_settings/create_dump/download_dump';
 import JobTable from './components/admin_settings/job_table/job_table';
 
 export default class Plugin {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
     public async initialize(registry: any, store: Store<GlobalState, Action<Record<string, unknown>>>) {
-        registry.registerAdminConsoleCustomSetting('DownloadDump', DownloadDump);
         registry.registerAdminConsoleCustomSetting('Dumps', JobTable);
     }
 }

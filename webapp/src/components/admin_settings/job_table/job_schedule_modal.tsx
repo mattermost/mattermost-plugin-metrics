@@ -5,7 +5,6 @@ import {addDays} from 'date-fns';
 import {DateRange, DayPicker} from 'react-day-picker';
 
 import 'react-day-picker/dist/style.css';
-import './job_schedule_modal.scss';
 
 export type Props = {
     show: boolean;

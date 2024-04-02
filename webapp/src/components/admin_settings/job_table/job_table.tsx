@@ -1,17 +1,16 @@
 import React from 'react';
 import classNames from 'classnames';
 
-import {Client4} from 'mattermost-redux/client';
-
 import {DateRange} from 'react-day-picker';
 
 import {Job} from '../types/types';
-import {manifest} from '@/manifest';
 
-import {getJobs} from './actions';
+import {craeteJob, getJobs} from './actions';
+
 import JobDateTime from './job_date_time';
 import JobDownloadLink from './job_download_link';
 import JobScheduleModal from './job_schedule_modal';
+import './job_schedule_modal.scss';
 
 export type Props = {
     jobs: Job[];
@@ -59,11 +58,7 @@ export default class JobTable extends React.Component<State, Props> {
 
     render() {
         const createDump = async (range: DateRange | undefined) => {
-            await Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/create`, {
-                method: 'post',
-                headers: {'Content-Type': 'application/json'},
-                body: `{"MinT": ${range?.from?.getTime()}, "MaxT": ${range?.to?.getTime()}}`,
-            });
+            await craeteJob(range!);
 
             this.setState({showModal: false});
             this.reload();
@@ -75,7 +70,12 @@ export default class JobTable extends React.Component<State, Props> {
                     <td className='whitespace--nowrap'><JobDateTime millis={job.create_at}/></td>
                     <td className='whitespace--nowrap'><JobDateTime millis={job.min_t}/></td>
                     <td className='whitespace--nowrap'><JobDateTime millis={job.max_t}/></td>
-                    <td className='whitespace--nowrap'><JobDownloadLink job={job}/></td>
+                    <td className='whitespace--nowrap'>
+                        <JobDownloadLink
+                            job={job}
+                            cb={this.reload}
+                        />
+                    </td>
                 </tr>
             );
         });
@@ -84,7 +84,6 @@ export default class JobTable extends React.Component<State, Props> {
             <div className={classNames('JobTable', 'job-table__panel', this.props.className)}>
                 <div
                     className='col-sm-13'
-                    style={styles.buttonRow}
                 >
                     <a
                         className='btn btn-primary'
@@ -132,12 +131,3 @@ export default class JobTable extends React.Component<State, Props> {
         );
     }
 }
-
-const styles = {
-    buttonRow: {
-        margin: '12px 0',
-    },
-    btn: {
-        gap: '0px',
-    },
-};
