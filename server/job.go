@@ -34,7 +34,7 @@ type DumpJob struct {
 // here it is required to acquire an exclusive lock to avoid
 // race in an HA environment if there are parallel job processing requests
 func (p *Plugin) lockJobKVMutex(ctx context.Context) (func(), error) {
-	lock, err := cluster.NewMutex(p.API, root.Manifest.Id)
+	lock, err := cluster.NewMutex(p.API, root.Manifest.Id+JobLockKey)
 	if err != nil {
 		return nil, fmt.Errorf("could not acquire lock: %w", err)
 	}
@@ -180,7 +180,6 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 	if appErr != nil {
 		return fmt.Errorf("could not store jobs: %w", appErr)
 	}
-
 	return nil
 }
 
