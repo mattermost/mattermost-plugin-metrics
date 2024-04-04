@@ -14,10 +14,6 @@ import (
 )
 
 const (
-	JobScheduled = "scheduled"
-	JobError     = "failed"
-	JobSucess    = "success"
-
 	JobLockKey    = PluginName + "_job_lock"
 	KVStoreJobKey = PluginName + "_finished_jobs"
 )
@@ -47,26 +43,44 @@ func (p *Plugin) lockJobKVMutex(ctx context.Context) (func(), error) {
 }
 
 func (p *Plugin) JobCallback(_ string, job any) {
-	dumpJob := job.(*DumpJob)
-	defer p.FinishJob(context.TODO(), dumpJob)
-	dumpJob.Status = JobError
+	dumpJob, ok := job.(*DumpJob)
+	if !ok {
+		p.API.LogError("could not cast to DumpJob")
+		return
+	}
+
+	dumpJob.Status = model.JobStatusInProgress
+	err := p.UpdateJob(context.TODO(), dumpJob)
+	if err != nil {
+		p.API.LogError("could not update job status", "err", err)
+		return
+	}
+
+	defer func() {
+		err = p.UpdateJob(context.TODO(), dumpJob)
+		if err != nil {
+			p.API.LogError("could not update job status", "err", err)
+			return
+		}
+	}()
 
 	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
 	dump, err := p.createDump(context.TODO(), dumpJob.ID, time.UnixMilli(dumpJob.MinT), time.UnixMilli(dumpJob.MaxT), remoteStorageDir)
 	if err != nil {
+		dumpJob.Status = model.JobStatusError
 		p.API.LogError("could not create dump", "err", err)
 		return
 	}
 
 	dumpJob.DumpLocation = dump
-	dumpJob.Status = JobSucess
+	dumpJob.Status = model.JobStatusSuccess
 }
 
 func (p *Plugin) CreateJob(_ context.Context, min, max int64) (*DumpJob, error) {
 	jobID := model.NewId()
 	job := &DumpJob{
 		ID:       jobID,
-		Status:   JobScheduled,
+		Status:   model.JobStatusPending,
 		CreateAt: time.Now().UnixMilli(),
 		MinT:     min,
 		MaxT:     max,
@@ -91,19 +105,20 @@ func (p *Plugin) GetAllJobs(ctx context.Context) (map[string]*DumpJob, error) {
 	for _, meta := range metas {
 		prop, ok := meta.Props.(map[string]any)
 		if !ok {
-			p.API.LogError("could not cast props into map job", "props", prop)
+			p.API.LogWarn("could not cast props into string map", "props", prop)
 			continue
 		}
 
 		b, err2 := json.Marshal(prop)
 		if err2 != nil {
-			p.API.LogError("could not marshal props", "id", meta.Key, "err", err2)
+			p.API.LogWarn("could not marshal props", "id", meta.Key, "err", err2)
 			continue
 		}
 
 		var j DumpJob
 		if err2 := json.Unmarshal(b, &j); err2 != nil {
-			p.API.LogError("could not unmarshal job", "id", meta.Key, "err", err2)
+			// this is an expected case if the job props are not a DumpJob compatible type
+			// we continue to parse other jobs to get actual dump jobs.
 			continue
 		}
 
@@ -165,7 +180,7 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 	}
 	err = p.fileBackend.RemoveDirectory(filepath.Dir(jobs[id].DumpLocation))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not remove directory: %w", err)
 	}
 	p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
 
@@ -183,7 +198,13 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 	return nil
 }
 
-func (p *Plugin) FinishJob(_ context.Context, job *DumpJob) error {
+func (p *Plugin) UpdateJob(ctx context.Context, job *DumpJob) error {
+	unlock, err := p.lockJobKVMutex(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	b, appErr := p.API.KVGet(KVStoreJobKey)
 	if appErr != nil {
 		return fmt.Errorf("could not retrieve jobs: %w", appErr)
@@ -192,14 +213,14 @@ func (p *Plugin) FinishJob(_ context.Context, job *DumpJob) error {
 	jobs := make(map[string]*DumpJob)
 
 	if len(b) > 0 {
-		err := json.Unmarshal(b, &jobs)
+		err = json.Unmarshal(b, &jobs)
 		if err != nil {
 			return fmt.Errorf("could not unmarshal jobs: %w", err)
 		}
 	}
 
 	jobs[job.ID] = job
-	b, err := json.Marshal(jobs)
+	b, err = json.Marshal(jobs)
 	if err != nil {
 		return fmt.Errorf("could not marshal jobs: %w", err)
 	}

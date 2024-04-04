@@ -81,14 +81,8 @@ func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, 
 		return "", err
 	}
 
-	f, err := os.Open(tempZipFile)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
 	zipFileNameRemote := filepath.Join(pluginDataDir, PluginName, tempZipFile)
-	_, err = p.fileBackend.WriteFile(f, zipFileNameRemote)
+	err = copyFile(tempZipFile, zipFileNameRemote, p.fileBackend.WriteFile)
 	if err != nil {
 		return "", err
 	}

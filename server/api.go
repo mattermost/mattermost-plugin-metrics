@@ -80,14 +80,12 @@ func (h *handler) createJobHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := json.Marshal(job)
+	err = json.NewEncoder(w).Encode(job)
 	if err != nil {
 		h.plugin.API.LogError("error while marshaling the job", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	w.Write(b)
 }
 
 func (h *handler) deleteJobHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +96,7 @@ func (h *handler) deleteJobHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.plugin.DeleteJob(r.Context(), id); err != nil {
-		h.plugin.API.LogError("error while job create request", "err", err)
+		h.plugin.API.LogError("error while job delete request", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -112,11 +110,9 @@ func (h *handler) getAllJobsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jobSlice := make([]*DumpJob, len(jobs))
-	i := 0
-	for id := range jobs {
-		jobSlice[i] = jobs[id]
-		i++
+	jobSlice := make([]*DumpJob, 0, len(jobs))
+	for _, job := range jobs {
+		jobSlice = append(jobSlice, job)
 	}
 
 	sort.Slice(jobSlice, func(i, j int) bool {

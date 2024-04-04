@@ -1,4 +1,4 @@
-export type JobStatus = 'scheduled' | 'failed' | 'success';
+export type JobStatus = 'pending' | 'in_progress' | 'error' | 'success';
 
 export type Job = {
     id: string;

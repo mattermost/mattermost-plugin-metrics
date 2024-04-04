@@ -5,7 +5,8 @@ import type {Job} from '../types/types';
 import {deleteJob, downloadJob} from './actions';
 
 const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactElement => {
-    if (job.status === 'success') {
+    switch (job.status) {
+    case 'success':
         return (
             <div key={job.id}>
                 <a
@@ -26,7 +27,7 @@ const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactE
                 </a>
             </div>
         );
-    } else if (job.status === 'scheduled') {
+    case 'pending':
         return (
             <div
                 key={job.id}
@@ -35,9 +36,18 @@ const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactE
                 {'Scheduled'}
             </div>
         );
+    case 'in_progress':
+        return (
+            <div
+                key={job.id}
+                style={{color: 'green'}}
+            >
+                {'In progress..'}
+            </div>
+        );
+    default:
+        return <>{'--'}</>;
     }
-
-    return <>{'--'}</>;
 });
 
 export default JobDownloadLink;
