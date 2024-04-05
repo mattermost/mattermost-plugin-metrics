@@ -27,6 +27,9 @@ func newHandler(plugin *Plugin) *handler {
 	root := mux.NewRouter()
 	root.Use(handler.authorized)
 
+	tsdb := root.PathPrefix("/tsdb").Subrouter()
+	tsdb.HandleFunc("", handler.getStatsHandler).Methods(http.MethodGet)
+
 	jobs := root.PathPrefix("/jobs").Subrouter()
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
 	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
@@ -160,4 +163,20 @@ func (h *handler) downloadJobHandler(w http.ResponseWriter, r *http.Request) {
 
 	appCfg := h.plugin.API.GetConfig()
 	web.WriteFileResponse(filepath.Base(job.DumpLocation), "application/zip", 0, time.Now(), *appCfg.ServiceSettings.WebserverMode, fr, true, w, r)
+}
+
+func (h *handler) getStatsHandler(w http.ResponseWriter, _ *http.Request) {
+	stats, err := h.plugin.GetTSDBStats()
+	if err != nil {
+		h.plugin.API.LogError("error while computing stats", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(stats)
+	if err != nil {
+		h.plugin.API.LogError("error while marshaling stats", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }

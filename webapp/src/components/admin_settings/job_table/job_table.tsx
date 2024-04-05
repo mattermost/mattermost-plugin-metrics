@@ -1,11 +1,12 @@
 import React from 'react';
 import classNames from 'classnames';
+import marked from 'marked';
 
 import {DateRange} from 'react-day-picker';
 
-import {Job} from '../types/types';
+import {Job, TSDBStats} from '../types/types';
 
-import {craeteJob, getJobs} from './actions';
+import {craeteJob, getJobs, getTSDBStats} from '../actions/actions';
 
 import JobDateTime from './job_date_time';
 import JobDownloadLink from './job_download_link';
@@ -13,12 +14,14 @@ import JobScheduleModal from './job_schedule_modal';
 import './job_schedule_modal.scss';
 
 export type Props = {
+    stats?: TSDBStats
     jobs: Job[];
     showModal: boolean;
     className?: string;
 }
 
 type State = {
+    stats?: TSDBStats
     jobs: Job[];
     showModal: boolean;
     className?: string;
@@ -39,9 +42,10 @@ export default class JobTable extends React.Component<State, Props> {
 
     async componentDidMount() {
         const jobs = await getJobs();
+        const stats = await getTSDBStats();
 
         // eslint-disable-next-line react/no-did-mount-set-state
-        this.setState({jobs});
+        this.setState({jobs, stats});
         this.interval = setInterval(this.reload, 15000);
     }
 
@@ -82,6 +86,16 @@ export default class JobTable extends React.Component<State, Props> {
 
         return (
             <div className={classNames('JobTable', 'job-table__panel', this.props.className)}>
+                <div className='form-group'>
+                    <label className='control-label col-sm-4'>
+                        {'TSDB Stats:'}
+                    </label>
+                    <div className='col-sm-8'>
+                        <span>
+                            {`Number of samples: ${this.state.stats?.num_samples},\nNumber of series: ${this.state.stats?.num_series}`}
+                        </span>
+                    </div>
+                </div>
                 <div
                     className='col-sm-13'
                 >
@@ -95,6 +109,8 @@ export default class JobTable extends React.Component<State, Props> {
                     </a>
                     <JobScheduleModal
                         show={this.state.showModal}
+                        min_t={this.state.stats?.min_t}
+                        max_t={this.state.stats?.max_t}
                         onClose={() => this.setState({showModal: false})}
                         onSubmit={createDump}
                     />

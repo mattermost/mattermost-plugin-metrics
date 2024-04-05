@@ -8,3 +8,10 @@ export type Job = {
     max_t: number;
     dump_location: string;
 };
+
+export type TSDBStats = {
+    min_t: number;
+    max_t: number;
+    num_series: number;
+    num_samples: number;
+}

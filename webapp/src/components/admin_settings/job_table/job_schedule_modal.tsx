@@ -8,6 +8,8 @@ import 'react-day-picker/dist/style.css';
 
 export type Props = {
     show: boolean;
+    min_t: number | undefined;
+    max_t: number | undefined;
     onClose: () => void;
     onSubmit: (range: DateRange | undefined) => void;
 }
@@ -21,14 +23,29 @@ const styles = {
     },
 };
 
-const JobScheduleModal = ({show, onClose, onSubmit}: Props) => {
+const JobScheduleModal = ({show, min_t, max_t, onClose, onSubmit}: Props) => {
     const today = new Date();
-    const defaultSelected: DateRange = {
+    let defaultSelected: DateRange = {
         from: addDays(today, -3),
         to: today,
     };
-    const [range, setRange] = useState<DateRange | undefined>(defaultSelected);
 
+    let fromDate = addDays(today, -14);
+    let toDate = today;
+    if (min_t && max_t) {
+        fromDate = new Date(min_t);
+        toDate = new Date(max_t);
+
+        const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
+        if (Math.round(Math.abs((max_t - min_t) / oneDay)) <= 3) {
+            defaultSelected = {
+                from: fromDate,
+                to: toDate,
+            };
+        }
+    }
+
+    const [range, setRange] = useState<DateRange | undefined>(defaultSelected);
     return (
         <Modal
             show={show}
@@ -45,8 +62,8 @@ const JobScheduleModal = ({show, onClose, onSubmit}: Props) => {
                         id='test'
                         mode='range'
                         defaultMonth={today}
-                        fromDate={addDays(today, -14)}
-                        toDate={today}
+                        fromDate={fromDate}
+                        toDate={toDate}
                         selected={range}
                         onSelect={setRange}
                     />

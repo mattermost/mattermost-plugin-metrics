@@ -2,7 +2,7 @@ import React, {ReactElement} from 'react';
 
 import type {Job} from '../types/types';
 
-import {deleteJob, downloadJob} from './actions';
+import {deleteJob, downloadJob} from '../actions/actions';
 
 const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactElement => {
     switch (job.status) {

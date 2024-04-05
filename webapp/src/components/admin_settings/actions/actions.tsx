@@ -2,8 +2,15 @@ import {Client4} from 'mattermost-redux/client';
 
 import {DateRange} from 'react-day-picker';
 
-import {Job} from '../types/types';
+import {Job, TSDBStats} from '../types/types';
 import {manifest} from '@/manifest';
+
+export function getTSDBStats() {
+    return Client4.doFetch<TSDBStats>(
+        `${Client4.getUrl()}/plugins/${manifest.id}/tsdb`,
+        {method: 'get'},
+    );
+}
 
 export function getJobs() {
     return Client4.doFetch<Job[]>(
