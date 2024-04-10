@@ -60,8 +60,8 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 }
 
 type JobCreateRequest struct {
-	MinT int64
-	MaxT int64
+	MinT int64 `json:"min_t"`
+	MaxT int64 `json:"max_t"`
 }
 
 func (h *handler) createJobHandler(w http.ResponseWriter, r *http.Request) {

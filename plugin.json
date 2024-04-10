@@ -23,7 +23,7 @@
         "settings": [
             {
                 "key": "DBPath",
-                "display_name": "TSDB Path",
+                "display_name": "TSDB Path:",
                 "type": "text",
                 "help_text": "The path of time-series database, the database is stored in plugins local storage. To change this setting, you'll need to restart the plugin for the changes to take effect.",
                 "default":"mattermost-plugin-metrics/data"

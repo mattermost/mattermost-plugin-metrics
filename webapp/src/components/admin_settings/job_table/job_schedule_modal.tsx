@@ -9,7 +9,7 @@ import 'react-day-picker/dist/style.css';
 export type Props = {
     show: boolean;
     onClose: () => void;
-    onSubmit: (range: DateRange | undefined) => void;
+    onSubmit: (range: DateRange) => void;
 }
 
 const styles = {
@@ -56,7 +56,7 @@ const JobScheduleModal = ({show, onClose, onSubmit}: Props) => {
                     >
                         <a
                             className='btn btn-primary'
-                            onClick={() => onSubmit(range)}
+                            onClick={() => onSubmit(range!)}
                         >
                             {'Submit'}
                         </a>

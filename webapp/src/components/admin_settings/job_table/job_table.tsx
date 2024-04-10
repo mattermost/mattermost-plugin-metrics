@@ -5,7 +5,7 @@ import {DateRange} from 'react-day-picker';
 
 import {Job} from '../types/types';
 
-import {craeteJob, getJobs} from './actions';
+import {createJob, getJobs} from './actions';
 
 import JobDateTime from './job_date_time';
 import JobDownloadLink from './job_download_link';
@@ -57,8 +57,8 @@ export default class JobTable extends React.Component<State, Props> {
     };
 
     render() {
-        const createDump = async (range: DateRange | undefined) => {
-            await craeteJob(range!);
+        const createDump = async (range: DateRange) => {
+            await createJob(range);
 
             this.setState({showModal: false});
             this.reload();
