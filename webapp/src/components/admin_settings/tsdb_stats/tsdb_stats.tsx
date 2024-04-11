@@ -70,7 +70,7 @@ class TSDBStatsTable extends React.PureComponent<Props, State> {
                                 <tr
                                     key={'youngest_sample'}
                                 >
-                                    <td className='whitespace--nowrap'>{'Closest timestamp'}</td>
+                                    <td className='whitespace--nowrap'>{'Most recent timestamp'}</td>
                                     <td className='whitespace--nowrap'><DateTimeFormatter millis={this.state.stats?.max_t}/></td>
                                 </tr>
                             </tbody>
