@@ -5,7 +5,7 @@ type Props = {
     millis?: number;
 }
 
-const JobDateTime = React.memo(({millis}: Props): ReactElement => {
+const DateTimeFormatter = React.memo(({millis}: Props): ReactElement => {
     const date = new Date(millis!);
 
     return (
@@ -28,4 +28,4 @@ const JobDateTime = React.memo(({millis}: Props): ReactElement => {
     );
 });
 
-export default JobDateTime;
+export default DateTimeFormatter;

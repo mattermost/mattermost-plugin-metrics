@@ -5,9 +5,10 @@ import {DateRange} from 'react-day-picker';
 
 import {Job, TSDBStats} from '../types/types';
 
-import {createJob, deleteAllJobs, deleteJob, downloadJob, getJobs, getTSDBStats} from './actions';
+import {createJob, deleteAllJobs, deleteJob, downloadJob, getJobs, getTSDBStats} from '../actions/actions';
 
-import JobDateTime from './job_date_time';
+import DateTimeFormatter from '../utils/date_time';
+
 import JobDownloadLink from './job_download_link';
 import JobScheduleModal from './job_schedule_modal';
 import JobRemoveModal from './job_remove_modal';
@@ -91,9 +92,9 @@ export default class JobTable extends React.Component<State, Props> {
         const items = this.state.jobs.map((job) => {
             return (
                 <tr key={job.id} >
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.create_at}/></td>
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.min_t}/></td>
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.max_t}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.create_at}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.min_t}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.max_t}/></td>
                     <td className='whitespace--nowrap'>
                         <JobDownloadLink
                             job={job}
@@ -107,16 +108,6 @@ export default class JobTable extends React.Component<State, Props> {
 
         return (
             <div className={classNames('JobTable', 'job-table__panel', this.props.className)}>
-                <div className='form-group'>
-                    <label className='control-label col-sm-4'>
-                        {'TSDB Stats:'}
-                    </label>
-                    <div className='col-sm-8'>
-                        <span>
-                            {`Number of samples: ${this.state.stats?.num_samples},\nNumber of series: ${this.state.stats?.num_series}`}
-                        </span>
-                    </div>
-                </div>
                 <div
                     className='col-sm-13'
                 >
