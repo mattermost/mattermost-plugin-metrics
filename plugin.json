@@ -6,7 +6,7 @@
     "support_url": "https://github.com/mattermost/mattermost-plugin-metrics/issues",
     "release_notes_url": "https://github.com/mattermost/mattermost-plugin-metrics/releases/tag/v0.4.0",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "min_server_version": "6.3.0",
     "server": {
         "executables": {
@@ -21,6 +21,11 @@
         "header": "This page is designated to configure the plugin and download the metrics dump.",
         "footer": "This plugin is a utility to scrape and store various data points from Mattermost application in openmetrics format, similar to what Prometheus does. It operates by collecting metrics at regular intervals, allowing to be used while troubleshooting issues by including these metrics into a dump file.",
         "settings": [
+            {
+                "key": "Stats",
+                "type": "custom",
+                "display_name": "TSDB Stats:"
+            },
             {
                 "key": "DBPath",
                 "display_name": "TSDB Path:",
