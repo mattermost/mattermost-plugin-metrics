@@ -26,6 +26,12 @@ export function deleteJob(id: string) {
     });
 }
 
+export async function deleteAllJobs() {
+    return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/deleteAll`, {
+        method: 'delete',
+    });
+}
+
 export async function downloadJob(id: string) {
     const res = await fetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/download/${id}`, {
         method: 'get',

@@ -5,34 +5,38 @@ import {DateRange} from 'react-day-picker';
 
 import {Job} from '../types/types';
 
-import {createJob, getJobs} from './actions';
+import {createJob, deleteAllJobs, deleteJob, downloadJob, getJobs} from './actions';
 
 import JobDateTime from './job_date_time';
 import JobDownloadLink from './job_download_link';
 import JobScheduleModal from './job_schedule_modal';
+import JobRemoveModal from './job_remove_modal';
 import './job_schedule_modal.scss';
 
 export type Props = {
     jobs: Job[];
-    showModal: boolean;
+    showScheduleModal: boolean;
+    showRemoveModal: boolean;
     className?: string;
 }
 
 type State = {
     jobs: Job[];
-    showModal: boolean;
+    showScheduleModal: boolean;
+    showRemoveModal: boolean;
     className?: string;
 }
 
 export default class JobTable extends React.Component<State, Props> {
     static defaultProps = {
         jobs: [],
-        showModal: false,
+        showScheduleModal: false,
+        showRemoveModal: false,
     };
 
     constructor(props: Props) {
         super(props);
-        this.state = {jobs: [], showModal: false};
+        this.state = {jobs: [], showScheduleModal: false, showRemoveModal: false};
     }
 
     interval: ReturnType<typeof setInterval>|null = null;
@@ -57,11 +61,28 @@ export default class JobTable extends React.Component<State, Props> {
     };
 
     render() {
-        const createDump = async (range: DateRange) => {
-            await createJob(range);
+        const createDump = (range: DateRange) => {
+            createJob(range).finally(() => {
+                this.reload();
+                this.setState({showScheduleModal: false});
+            });
+        };
 
-            this.setState({showModal: false});
-            this.reload();
+        const downloadDump = async (id: string) => {
+            await downloadJob(id);
+        };
+
+        const removeJob = (id: string) => {
+            deleteJob(id).finally(() => {
+                this.reload();
+            });
+        };
+
+        const deleteAll = () => {
+            deleteAllJobs().finally(() => {
+                this.reload();
+                this.setState({showRemoveModal: false});
+            });
         };
 
         const items = this.state.jobs.map((job) => {
@@ -73,7 +94,8 @@ export default class JobTable extends React.Component<State, Props> {
                     <td className='whitespace--nowrap'>
                         <JobDownloadLink
                             job={job}
-                            cb={this.reload}
+                            download={downloadDump}
+                            remove={removeJob}
                         />
                     </td>
                 </tr>
@@ -88,15 +110,28 @@ export default class JobTable extends React.Component<State, Props> {
                     <a
                         className='btn btn-primary'
                         onClick={() =>
-                            this.setState({showModal: true})
+                            this.setState({showScheduleModal: true})
                         }
                     >
                         {'Create Dump'}
                     </a>
                     <JobScheduleModal
-                        show={this.state.showModal}
-                        onClose={() => this.setState({showModal: false})}
+                        show={this.state.showScheduleModal}
+                        onClose={() => this.setState({showScheduleModal: false})}
                         onSubmit={createDump}
+                    />
+                    <a
+                        className='btn btn-danger'
+                        onClick={() =>
+                            this.setState({showRemoveModal: true})
+                        }
+                    >
+                        {'Remove All'}
+                    </a>
+                    <JobRemoveModal
+                        show={this.state.showRemoveModal}
+                        onClose={() => this.setState({showRemoveModal: false})}
+                        onSubmit={deleteAll}
                     />
                 </div>
                 {

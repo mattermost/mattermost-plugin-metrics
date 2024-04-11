@@ -31,6 +31,7 @@ const JobScheduleModal = ({show, onClose, onSubmit}: Props) => {
 
     return (
         <Modal
+            dialogClassName='a11y__modal metrics-modal-schedule'
             show={show}
             onHide={onClose}
         >
