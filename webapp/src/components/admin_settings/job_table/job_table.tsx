@@ -85,6 +85,29 @@ export default class JobTable extends React.Component<State, Props> {
             });
         };
 
+        const removeButton = () => {
+            if (this.state.jobs.length > 0) {
+                return (
+                    <a
+                        className={'btn btn-danger'}
+                        onClick={() =>
+                            this.setState({showRemoveModal: true})
+                        }
+                    >
+                        {'Remove All'}
+                    </a>
+                );
+            }
+
+            return (
+                <span
+                    className={'btn btn-inactive'}
+                >
+                    {'Remove All'}
+                </span>
+            );
+        };
+
         const items = this.state.jobs.map((job) => {
             return (
                 <tr key={job.id} >
@@ -120,14 +143,7 @@ export default class JobTable extends React.Component<State, Props> {
                         onClose={() => this.setState({showScheduleModal: false})}
                         onSubmit={createDump}
                     />
-                    <a
-                        className='btn btn-danger'
-                        onClick={() =>
-                            this.setState({showRemoveModal: true})
-                        }
-                    >
-                        {'Remove All'}
-                    </a>
+                    {removeButton()}
                     <JobRemoveModal
                         show={this.state.showRemoveModal}
                         onClose={() => this.setState({showRemoveModal: false})}
