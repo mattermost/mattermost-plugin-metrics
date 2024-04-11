@@ -2,16 +2,14 @@ import React, {ReactElement} from 'react';
 
 import type {Job} from '../types/types';
 
-import {deleteJob, downloadJob} from '../actions/actions';
-
-const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactElement => {
+const JobDownloadLink = React.memo(({job, download, remove}: {job: Job, download: (id: string) => {}, remove: (id: string) => void}): ReactElement => {
     switch (job.status) {
     case 'success':
         return (
             <div key={job.id}>
                 <a
                     onClick={() => {
-                        downloadJob(job.id);
+                        download(job.id);
                     }}
                 >
                     {'Download'}
@@ -19,8 +17,7 @@ const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactE
                 {', '}
                 <a
                     onClick={() => {
-                        deleteJob(job.id);
-                        cb();
+                        remove(job.id);
                     }}
                 >
                     {'Remove'}
@@ -44,6 +41,17 @@ const JobDownloadLink = React.memo(({job, cb}: {job: Job, cb: () => {}}): ReactE
             >
                 {'In progress..'}
             </div>
+        );
+    case 'error':
+        return (
+            <a
+                style={{color: 'red'}}
+                onClick={() => {
+                    remove(job.id);
+                }}
+            >
+                {'Remove (failed)'}
+            </a>
         );
     default:
         return <>{'--'}</>;

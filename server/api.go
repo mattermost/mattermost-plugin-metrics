@@ -34,6 +34,7 @@ func newHandler(plugin *Plugin) *handler {
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
 	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
 	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete)
+	jobs.HandleFunc("/deleteAll", handler.deleteAllJobsHandler).Methods(http.MethodDelete)
 	jobs.HandleFunc("/download/{id:[A-Za-z0-9]+}", handler.downloadJobHandler).Methods(http.MethodGet)
 
 	handler.router = root
@@ -63,8 +64,8 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 }
 
 type JobCreateRequest struct {
-	MinT int64
-	MaxT int64
+	MinT int64 `json:"min_t"`
+	MaxT int64 `json:"max_t"`
 }
 
 func (h *handler) createJobHandler(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +101,14 @@ func (h *handler) deleteJobHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.plugin.DeleteJob(r.Context(), id); err != nil {
 		h.plugin.API.LogError("error while job delete request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *handler) deleteAllJobsHandler(w http.ResponseWriter, r *http.Request) {
+	if err := h.plugin.DeleteAllJobs(r.Context()); err != nil {
+		h.plugin.API.LogError("error while job delete all jobs request", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

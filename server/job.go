@@ -178,12 +178,13 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 		p.scheduler.Cancel(id)
 		return nil
 	}
+
 	err = p.fileBackend.RemoveDirectory(filepath.Dir(jobs[id].DumpLocation))
 	if err != nil {
-		return fmt.Errorf("could not remove directory: %w", err)
+		p.API.LogError("dump could not be deleted", "id", jobs[id].ID, "err", err.Error())
+	} else {
+		p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
 	}
-	p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
-
 	delete(jobs, id)
 
 	b, err = json.Marshal(jobs)
@@ -195,6 +196,30 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 	if appErr != nil {
 		return fmt.Errorf("could not store jobs: %w", appErr)
 	}
+	return nil
+}
+
+func (p *Plugin) DeleteAllJobs(ctx context.Context) error {
+	jobs, err := p.GetAllJobs(ctx)
+	if err != nil {
+		return err
+	}
+
+	for id := range jobs {
+		err = p.DeleteJob(ctx, id)
+		if err != nil {
+			return err
+		}
+	}
+
+	// this is danger zone but it is necessary to clear up any remaining files
+	dumpDirectory := filepath.Join(pluginDataDir, PluginName, "dump")
+	err = p.fileBackend.RemoveDirectory(dumpDirectory)
+	if err != nil {
+		return err
+	}
+	p.API.LogInfo("Dump directory removed from the file store.")
+
 	return nil
 }
 

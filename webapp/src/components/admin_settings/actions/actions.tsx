@@ -19,16 +19,22 @@ export function getJobs() {
     );
 }
 
-export async function craeteJob(range: DateRange) {
+export async function createJob(range: DateRange) {
     return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/create`, {
         method: 'post',
         headers: {'Content-Type': 'application/json'},
-        body: `{"MinT": ${range?.from?.getTime()}, "MaxT": ${range?.to?.getTime()}}`,
+        body: JSON.stringify({min_t: range.from?.getTime(), max_t: range.to?.getTime()}),
     });
 }
 
 export function deleteJob(id: string) {
     return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/delete/${id}`, {
+        method: 'delete',
+    });
+}
+
+export async function deleteAllJobs() {
+    return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/deleteAll`, {
         method: 'delete',
     });
 }
@@ -54,7 +60,7 @@ function extractFilename(input: string | null): string {
     }
 
     const regex = /filename\*?=["']?((?:\\.|[^"'\s])+)(?=["']?)/g;
-    const matches = regex.exec(input!);
+    const matches = regex.exec(input);
 
     return matches ? matches[1] : presumedFileName;
 }

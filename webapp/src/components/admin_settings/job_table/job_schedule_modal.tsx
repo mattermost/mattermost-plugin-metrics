@@ -11,7 +11,7 @@ export type Props = {
     min_t: number | undefined;
     max_t: number | undefined;
     onClose: () => void;
-    onSubmit: (range: DateRange | undefined) => void;
+    onSubmit: (range: DateRange) => void;
 }
 
 const styles = {
@@ -48,6 +48,7 @@ const JobScheduleModal = ({show, min_t, max_t, onClose, onSubmit}: Props) => {
     const [range, setRange] = useState<DateRange | undefined>(defaultSelected);
     return (
         <Modal
+            dialogClassName='a11y__modal metrics-modal-schedule'
             show={show}
             onHide={onClose}
         >
@@ -73,7 +74,7 @@ const JobScheduleModal = ({show, min_t, max_t, onClose, onSubmit}: Props) => {
                     >
                         <a
                             className='btn btn-primary'
-                            onClick={() => onSubmit(range)}
+                            onClick={() => onSubmit(range!)}
                         >
                             {'Submit'}
                         </a>

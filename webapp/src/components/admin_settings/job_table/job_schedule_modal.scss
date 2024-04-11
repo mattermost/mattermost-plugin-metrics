@@ -1,18 +1,15 @@
-.modal-dialog {
-    width: 410px;
+.metrics-modal-schedule {
+    &.modal-dialog {
+        width: 410px;
+    }
+
+    .modal-body {
+        overflow: visible;
+        padding: 8px;
+    }
 }
 
-.modal-body {
-    padding: 8px;
-}
 
-.buttonRow {
-    margin: 24px 24px,
-}
-
-.btn {
-    gap: 0px,
-}
 
 .date-picker__popper {
     padding: 12px;
