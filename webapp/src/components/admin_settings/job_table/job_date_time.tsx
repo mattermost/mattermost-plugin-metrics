@@ -2,28 +2,26 @@ import React, {ReactElement} from 'react';
 import {IntlProvider, FormattedTime, FormattedDate} from 'react-intl';
 
 type Props = {
-    millis?: number;
+    millis: number;
 }
 
 const JobDateTime = React.memo(({millis}: Props): ReactElement => {
-    const date = new Date(millis!);
+    const date = new Date(millis);
 
     return (
         <span className='JobFinishAt whitespace--nowrap'>
-            <IntlProvider locale='en'>
-                <FormattedDate
-                    value={date}
-                    day='2-digit'
-                    month='short'
-                    year='numeric'
-                />
-                {' - '}
-                <FormattedTime
-                    value={date}
-                    hour='2-digit'
-                    minute='2-digit'
-                />
-            </IntlProvider>
+            <FormattedDate
+                value={date}
+                day='2-digit'
+                month='short'
+                year='numeric'
+            />
+            {' - '}
+            <FormattedTime
+                value={date}
+                hour='2-digit'
+                minute='2-digit'
+            />
         </span>
     );
 });
