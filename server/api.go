@@ -28,7 +28,7 @@ func newHandler(plugin *Plugin) *handler {
 	root.Use(handler.authorized)
 
 	tsdb := root.PathPrefix("/tsdb").Subrouter()
-	tsdb.HandleFunc("", handler.getStatsHandler).Methods(http.MethodGet)
+	tsdb.HandleFunc("/stats", handler.getStatsHandler).Methods(http.MethodGet)
 
 	jobs := root.PathPrefix("/jobs").Subrouter()
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)

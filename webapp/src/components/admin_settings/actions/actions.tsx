@@ -7,7 +7,7 @@ import {manifest} from '@/manifest';
 
 export function getTSDBStats() {
     return Client4.doFetch<TSDBStats>(
-        `${Client4.getUrl()}/plugins/${manifest.id}/tsdb`,
+        `${Client4.getUrl()}/plugins/${manifest.id}/tsdb/stats`,
         {method: 'get'},
     );
 }

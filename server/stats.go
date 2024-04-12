@@ -25,7 +25,7 @@ func (p *Plugin) GetTSDBStats() (TSDBStats, error) {
 	for _, b := range blocks {
 		meta, rErr := readBlockMeta(filepath.Join(b, metaFileName), p.fileBackend.ReadFile)
 		if rErr != nil {
-			p.API.LogDebug("unable to read meta file", "err", rErr)
+			p.API.LogWarn("unable to read meta file", "err", rErr)
 			continue
 		}
 
