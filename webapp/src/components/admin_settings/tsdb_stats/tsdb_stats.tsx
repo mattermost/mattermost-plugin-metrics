@@ -6,18 +6,23 @@ import {TSDBStats} from '../types/types';
 
 import './tsdb_stats.scss';
 
-export type Props = {
-    stats?: TSDBStats
-}
+export type Props = {}
 
 type State = {
-    stats?: TSDBStats
+    stats: TSDBStats
 }
 
 class TSDBStatsTable extends React.PureComponent<Props, State> {
     constructor(props: Props) {
         super(props);
-        this.state = {};
+        this.state = {
+            stats: {
+                min_t: 0,
+                max_t: 0,
+                num_series: 0,
+                num_samples: 0,
+            },
+        };
     }
 
     async componentDidMount() {
@@ -53,25 +58,25 @@ class TSDBStatsTable extends React.PureComponent<Props, State> {
                                     key={'num_samples'}
                                 >
                                     <td className='whitespace--nowrap'>{'Number of samples'}</td>
-                                    <td className='whitespace--nowrap'>{this.state.stats?.num_samples}</td>
+                                    <td className='whitespace--nowrap'>{this.state.stats.num_samples}</td>
                                 </tr>
                                 <tr
                                     key={'num_series'}
                                 >
-                                    <td className='whitespace--nowrap'>{'Number of series'}</td>
-                                    <td className='whitespace--nowrap'>{this.state.stats?.num_series}</td>
+                                    <td className='whitespace--nowrap'>{'Maximum series count'}</td>
+                                    <td className='whitespace--nowrap'>{this.state.stats.num_series}</td>
                                 </tr>
                                 <tr
                                     key={'oldest_sample'}
                                 >
                                     <td className='whitespace--nowrap'>{'Oldest timestamp'}</td>
-                                    <td className='whitespace--nowrap'><DateTimeFormatter millis={this.state.stats!.min_t}/></td>
+                                    <td className='whitespace--nowrap'><DateTimeFormatter millis={this.state.stats.min_t}/></td>
                                 </tr>
                                 <tr
                                     key={'youngest_sample'}
                                 >
                                     <td className='whitespace--nowrap'>{'Most recent timestamp'}</td>
-                                    <td className='whitespace--nowrap'><DateTimeFormatter millis={this.state.stats!.max_t}/></td>
+                                    <td className='whitespace--nowrap'><DateTimeFormatter millis={this.state.stats.max_t}/></td>
                                 </tr>
                             </tbody>
                         </table>

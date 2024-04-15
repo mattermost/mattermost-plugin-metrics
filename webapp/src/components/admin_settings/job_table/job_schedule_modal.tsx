@@ -8,8 +8,8 @@ import 'react-day-picker/dist/style.css';
 
 export type Props = {
     show: boolean;
-    min_t: number | undefined;
-    max_t: number | undefined;
+    min_t?: number;
+    max_t?: number;
     onClose: () => void;
     onSubmit: (range: DateRange) => void;
 }
