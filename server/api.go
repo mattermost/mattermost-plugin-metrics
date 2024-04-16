@@ -1,9 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
-	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -26,7 +27,16 @@ func newHandler(plugin *Plugin) *handler {
 	root := mux.NewRouter()
 	root.Use(handler.authorized)
 
-	root.HandleFunc("/download", handler.downloadDumpHandler).Methods(http.MethodGet)
+	tsdb := root.PathPrefix("/tsdb").Subrouter()
+	tsdb.HandleFunc("/stats", handler.getStatsHandler).Methods(http.MethodGet)
+
+	jobs := root.PathPrefix("/jobs").Subrouter()
+	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
+	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
+	jobs.HandleFunc("/delete/{id:[A-Za-z0-9]+}", handler.deleteJobHandler).Methods(http.MethodDelete)
+	jobs.HandleFunc("/deleteAll", handler.deleteAllJobsHandler).Methods(http.MethodDelete)
+	jobs.HandleFunc("/download/{id:[A-Za-z0-9]+}", handler.downloadJobHandler).Methods(http.MethodGet)
+
 	handler.router = root
 
 	return handler
@@ -53,44 +63,129 @@ func (h *handler) authorized(next http.Handler) http.Handler {
 	})
 }
 
-func (h *handler) downloadDumpHandler(w http.ResponseWriter, r *http.Request) {
-	var days int
-	switch *h.plugin.configuration.CollectMetricsFrom {
-	case "yesterday":
-		days = -1
-	case "3_days":
-		days = -3
-	case "last_week":
-		days = -7
-	case "2_weeks":
-		days = -14
+type JobCreateRequest struct {
+	MinT int64 `json:"min_t"`
+	MaxT int64 `json:"max_t"`
+}
+
+func (h *handler) createJobHandler(w http.ResponseWriter, r *http.Request) {
+	var jcr JobCreateRequest
+	err := json.NewDecoder(r.Body).Decode(&jcr)
+	if err != nil {
+		h.plugin.API.LogError("error while processing the request", "err", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
-	min := time.Now().AddDate(0, 0, days)
-	max := time.Now()
-
-	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	fp, err := h.plugin.createDump(r.Context(), min, max, remoteStorageDir)
+	job, err := h.plugin.CreateJob(r.Context(), jcr.MinT, jcr.MaxT)
 	if err != nil {
-		h.plugin.API.LogError("Failed to created dump", "error", err.Error())
+		h.plugin.API.LogError("error while job create request", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer func() {
-		fErr := os.RemoveAll(filepath.Dir(fp))
-		if fErr != nil {
-			h.plugin.API.LogError("Unable to remove temp directory for the dump", "error", fErr.Error())
-		}
-	}()
 
-	f, err := os.Open(fp)
+	err = json.NewEncoder(w).Encode(job)
 	if err != nil {
-		h.plugin.API.LogError("Failed to read dump file", "error", err.Error())
+		h.plugin.API.LogError("error while marshaling the job", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+}
+
+func (h *handler) deleteJobHandler(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if !model.IsValidId(id) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err := h.plugin.DeleteJob(r.Context(), id); err != nil {
+		h.plugin.API.LogError("error while job delete request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *handler) deleteAllJobsHandler(w http.ResponseWriter, r *http.Request) {
+	if err := h.plugin.DeleteAllJobs(r.Context()); err != nil {
+		h.plugin.API.LogError("error while job delete all jobs request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *handler) getAllJobsHandler(w http.ResponseWriter, r *http.Request) {
+	jobs, err := h.plugin.GetAllJobs(r.Context())
+	if err != nil {
+		h.plugin.API.LogError("error while job list request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	jobSlice := make([]*DumpJob, 0, len(jobs))
+	for _, job := range jobs {
+		jobSlice = append(jobSlice, job)
+	}
+
+	sort.Slice(jobSlice, func(i, j int) bool {
+		return jobSlice[i].CreateAt > jobSlice[j].CreateAt
+	})
+
+	b, err := json.Marshal(jobSlice)
+	if err != nil {
+		h.plugin.API.LogError("error while marshaling the jobs", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(b)
+}
+
+func (h *handler) downloadJobHandler(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	if !model.IsValidId(id) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	jobs, err := h.plugin.GetAllJobs(r.Context())
+	if err != nil {
+		h.plugin.API.LogError("error while job list request", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	job, ok := jobs[id]
+	if !ok {
+		h.plugin.API.LogError("could not find job", "id", id)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	fr, err := h.plugin.fileBackend.Reader(job.DumpLocation)
+	if err != nil {
+		h.plugin.API.LogError("error while acquiring the file reader", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer fr.Close()
 
 	appCfg := h.plugin.API.GetConfig()
-	web.WriteFileResponse(filepath.Base(fp), "application/zip", 0, max, *appCfg.ServiceSettings.WebserverMode, f, true, w, r)
+	web.WriteFileResponse(filepath.Base(job.DumpLocation), "application/zip", 0, time.Now(), *appCfg.ServiceSettings.WebserverMode, fr, true, w, r)
+}
+
+func (h *handler) getStatsHandler(w http.ResponseWriter, _ *http.Request) {
+	stats, err := h.plugin.GetTSDBStats()
+	if err != nil {
+		h.plugin.API.LogError("error while computing stats", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(stats)
+	if err != nil {
+		h.plugin.API.LogError("error while marshaling stats", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 }

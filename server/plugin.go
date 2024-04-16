@@ -58,6 +58,8 @@ type Plugin struct {
 	logger log.Logger
 
 	handler *handler
+
+	scheduler *cluster.JobOnceScheduler
 }
 
 func (p *Plugin) OnActivate() error {
@@ -88,6 +90,10 @@ func (p *Plugin) OnActivate() error {
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
+
+	p.scheduler = cluster.GetJobOnceScheduler(p.API)
+	p.scheduler.SetCallback(p.JobCallback)
+	p.scheduler.Start()
 
 	// we are using a mutually exclusive lock to run a single instance of this plugin
 	// we don't really need to collect metrics twice: although TSDB will take care
