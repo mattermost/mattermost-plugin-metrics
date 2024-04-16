@@ -3,17 +3,19 @@ import classNames from 'classnames';
 
 import {DateRange} from 'react-day-picker';
 
-import {Job} from '../types/types';
+import {Job, TSDBStats} from '../types/types';
 
-import {createJob, deleteAllJobs, deleteJob, downloadJob, getJobs} from './actions';
+import {createJob, deleteAllJobs, deleteJob, downloadJob, getJobs, getTSDBStats} from '../actions/actions';
 
-import JobDateTime from './job_date_time';
+import DateTimeFormatter from '../utils/date_time';
+
 import JobDownloadLink from './job_download_link';
 import JobScheduleModal from './job_schedule_modal';
 import JobRemoveModal from './job_remove_modal';
 import './job_schedule_modal.scss';
 
 export type Props = {
+    stats?: TSDBStats
     jobs: Job[];
     showScheduleModal: boolean;
     showRemoveModal: boolean;
@@ -21,6 +23,7 @@ export type Props = {
 }
 
 type State = {
+    stats?: TSDBStats
     jobs: Job[];
     showScheduleModal: boolean;
     showRemoveModal: boolean;
@@ -43,9 +46,10 @@ export default class JobTable extends React.Component<State, Props> {
 
     async componentDidMount() {
         const jobs = await getJobs();
+        const stats = await getTSDBStats();
 
         // eslint-disable-next-line react/no-did-mount-set-state
-        this.setState({jobs});
+        this.setState({jobs, stats});
         this.interval = setInterval(this.reload, 15000);
     }
 
@@ -111,9 +115,9 @@ export default class JobTable extends React.Component<State, Props> {
         const items = this.state.jobs.map((job) => {
             return (
                 <tr key={job.id} >
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.create_at}/></td>
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.min_t}/></td>
-                    <td className='whitespace--nowrap'><JobDateTime millis={job.max_t}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.create_at}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.min_t}/></td>
+                    <td className='whitespace--nowrap'><DateTimeFormatter millis={job.max_t}/></td>
                     <td className='whitespace--nowrap'>
                         <JobDownloadLink
                             job={job}
@@ -140,6 +144,8 @@ export default class JobTable extends React.Component<State, Props> {
                     </a>
                     <JobScheduleModal
                         show={this.state.showScheduleModal}
+                        min_t={this.state.stats?.min_t}
+                        max_t={this.state.stats?.max_t}
                         onClose={() => this.setState({showScheduleModal: false})}
                         onSubmit={createDump}
                     />
