@@ -18,8 +18,7 @@
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
-        "header": "This page is designated to configure the plugin and download the metrics dump.",
-        "footer": "This plugin is a utility to scrape and store various data points from Mattermost application in openmetrics format, similar to what Prometheus does. It operates by collecting metrics at regular intervals, allowing to be used while troubleshooting issues by including these metrics into a dump file.",
+        "header": "Collect and store Mattermost performance data at regular intervals in a standard OpenMetrics format, without requiring third-party tool deployments. Data snapshots stored in a dump file can be consumed by a wide range of monitoring systems.",
         "settings": [
             {
                 "key": "Stats",
@@ -30,7 +29,7 @@
                 "key": "DBPath",
                 "display_name": "TSDB Path:",
                 "type": "text",
-                "help_text": "The path of time-series database, the database is stored in plugins local storage. To change this setting, you'll need to restart the plugin for the changes to take effect.",
+                "help_text": "The local path where the time series database data is stored. Changing this setting requires a plugin restart.",
                 "default":"mattermost-plugin-metrics/data"
             },
             {
