@@ -66,6 +66,16 @@ export default class JobTable extends React.Component<State, Props> {
 
     render() {
         const createDump = (range: DateRange) => {
+            if (range.to) {
+                // we need to manipulate one more day to the upper limit because the DayPicker
+                // returns the 12:00 AM timestamp of the selected range.
+                range.to = new Date(range.to!.getTime() + (1000 * 60 * 60 * 24));
+            } else {
+                // here we are setting upper limit if it's undefined, this happens if you
+                // only select a single day.
+                range.to = new Date(range.from!.getTime() + (1000 * 60 * 60 * 24));
+            }
+
             createJob(range).finally(() => {
                 this.reload();
                 this.setState({showScheduleModal: false});
@@ -168,13 +178,13 @@ export default class JobTable extends React.Component<State, Props> {
                                         {'Created At'}
                                     </th>
                                     <th>
-                                        {'Min T'}
+                                        {'Minimum Time'}
                                     </th>
                                     <th>
-                                        {'Max T'}
+                                        {'Maximum Time'}
                                     </th>
                                     <th>
-                                        {'Action(s)'}
+                                        {'Actions'}
                                     </th>
                                 </tr>
                             </thead>
