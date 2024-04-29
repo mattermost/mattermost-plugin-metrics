@@ -6,7 +6,7 @@
     "support_url": "https://github.com/mattermost/mattermost-plugin-metrics/issues",
     "release_notes_url": "https://github.com/mattermost/mattermost-plugin-metrics/releases/tag/v0.4.0",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "min_server_version": "6.3.0",
     "server": {
         "executables": {
@@ -30,7 +30,7 @@
                 "display_name": "TSDB Path:",
                 "type": "text",
                 "help_text": "The local path where the time series database data is stored. Changing this setting requires a plugin restart.",
-                "default":"mattermost-plugin-metrics/data"
+                "default": "mattermost-plugin-metrics/data"
             },
             {
                 "key": "Dumps",
@@ -38,5 +38,8 @@
                 "display_name": "Dump Table:"
             }
         ]
+    },
+    "props": {
+        "support_packet": "Performance metrics"
     }
 }
