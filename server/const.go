@@ -11,4 +11,5 @@ const (
 	zipFileName        = "tsdb_dump.tar.gz"
 	MaxRequestSize     = 5 * 1024 * 1024 // 5MB
 	localRetentionDays = 3 * 24 * time.Hour
+	maxPingTrials      = 10
 )
