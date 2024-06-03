@@ -2,7 +2,11 @@
 
 The Mattermost Metrics Plugin is a versatile utility designed to collect and store various data points from the Mattermost application in [OpenMetrics](https://openmetrics.io/) format, similar to the functionality provided by [Prometheus](https://prometheus.io/). The primary purpose of this plugin is to facilitate troubleshooting by gathering metrics at regular intervals and allowing their inclusion in a dump file.
 
-## Operational Modes
+See the [Mattermost Product Documentation](https://docs.mattermost.com/scale/collect-performance-metrics.html) for details on installing, configuring, enabling, and using this Mattermost integration.
+
+## Development
+
+### Operational Modes
 
 In a High Availability (HA) environment, the Mattermost Metrics Plugin operates in two distinct modes: scraper mode and listener mode.
 
@@ -12,15 +16,7 @@ In a High Availability (HA) environment, the Mattermost Metrics Plugin operates 
 
 For the single node deployment, these two modes are combined.
 
-## Getting Started
-
-To install the plugin, follow these steps:
-
-1. Download the latest version from the [release page](https://github.com/mattermost/mattermost-plugin-metrics/releases).
-2. Upload the downloaded file through **System Console > Plugins > Plugin Management**, or manually place it in the Mattermost server's plugin directory.
-3. Enable the plugin.
-
-## Contribution Guidelines
+### Contribution Guidelines
 
 If you wish to contribute to the Mattermost Metrics Plugin, ensure you have the following versions installed:
 
@@ -30,6 +26,6 @@ If you wish to contribute to the Mattermost Metrics Plugin, ensure you have the 
 
 Feel free to join the [Developers: Performance](https://community.mattermost.com/core/channels/developers-performance) channel to engage in discussions related to the project.
 
-## License
+### License
 
 See [LICENSE](LICENSE) for licensing information. Your contributions to this open-source project are welcome!
