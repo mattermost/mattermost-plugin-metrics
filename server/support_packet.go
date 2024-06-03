@@ -2,23 +2,45 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
-	"time"
+	"sort"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 )
 
-func (p *Plugin) GenerateSupportData(ctx *plugin.Context) ([]*model.FileData, error) {
-	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-	dump, err := p.createDump(context.TODO(), ctx.RequestId, time.Now().Add(-1*time.Duration(*p.configuration.SupportPacketMetricsDays)*24*time.Hour), time.Now(), remoteStorageDir)
+func (p *Plugin) GenerateSupportData(_ *plugin.Context) ([]*model.FileData, error) {
+	jobs, err := p.GetAllJobs(context.TODO())
 	if err != nil {
-		return nil, fmt.Errorf("could not create dump: %w", err)
+		return nil, fmt.Errorf("could not retrieve jobs")
 	}
 
-	fr, err := p.fileBackend.Reader(dump)
+	jobSlice := make([]*DumpJob, 0, len(jobs))
+	for _, job := range jobs {
+		jobSlice = append(jobSlice, job)
+	}
+
+	sort.Slice(jobSlice, func(i, j int) bool {
+		return jobSlice[i].CreateAt > jobSlice[j].CreateAt
+	})
+
+	var recentJob *DumpJob
+	for _, j := range jobSlice {
+		if j.Status == model.JobStatusSuccess {
+			recentJob = j
+			break
+		}
+	}
+
+	if recentJob == nil {
+		return nil, errors.New("there is no dumps in the filestore, please create a tsdb dump first")
+	}
+	dumpLocation := recentJob.DumpLocation
+
+	fr, err := p.fileBackend.Reader(dumpLocation)
 	if err != nil {
 		return nil, fmt.Errorf("could not read dump: %w", err)
 	}
@@ -30,7 +52,7 @@ func (p *Plugin) GenerateSupportData(ctx *plugin.Context) ([]*model.FileData, er
 	}
 
 	return []*model.FileData{{
-		Filename: filepath.Base(dump),
+		Filename: filepath.Base(dumpLocation),
 		Body:     b,
 	},
 	}, nil
