@@ -72,7 +72,9 @@ func (p *Plugin) JobCallback(_ string, job any) {
 		return
 	}
 
-	dumpJob.DumpLocation = dump
+	dumpJob.DumpLocation = dump.Path
+	dumpJob.MinT = dump.MinT
+	dumpJob.MaxT = dump.MaxT
 	dumpJob.Status = model.JobStatusSuccess
 }
 
