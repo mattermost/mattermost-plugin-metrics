@@ -22,7 +22,7 @@ func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, 
 	if err != nil {
 		return nil, err
 	} else if len(blocks) == 0 {
-		return nil, errors.New("no blocks in the remote sotrage")
+		return nil, errors.New("no blocks in the remote storage")
 	}
 
 	// we generate everything under a new directory to avoid conflicts

@@ -7,7 +7,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.1
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/mattermost/mattermost/server/public v0.1.0
+	github.com/mattermost/mattermost/server/public v0.1.1
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20240326175929-75cf1f9d931a
 	github.com/mattermost/squirrel v0.4.0
 	github.com/oklog/ulid v1.3.1

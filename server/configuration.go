@@ -39,18 +39,19 @@ type configuration struct {
 	HonorTimestamps *bool
 	// Option to enable the experimental in-memory metadata storage and append metadata to the WAL.
 	EnableMetadataStorage *bool
-	// Scrape interval is the time between polling the /metrics endpoint
+	// Scrape interval is the time between polling the /metrics endpoint.
 	ScrapeIntervalSeconds *int
-	// Screpe timeout tells scraper to give up on the poll for a single scrape attempt
+	// Screpe timeout tells scraper to give up on the poll for a single scrape attempt.
 	ScrapeTimeoutSeconds *int
-	// RetentionDurationDays defines the retention time for the tsdb blocks
+	// RetentionDurationDays defines the retention time for the tsdb blocks.
 	RetentionDurationDays *int
-	// FileStoreSyncPeriodMinutes is the period to sync local store with the remote filestore
+	// FileStoreSyncPeriodMinutes is the period to sync local store with the remote filestore.
 	FileStoreSyncPeriodMinutes *int
-	// FileStoreCleanupPeriodMinutes is the period to run cleanup job in the filestore
+	// FileStoreCleanupPeriodMinutes is the period to run cleanup job in the filestore.
 	FileStoreCleanupPeriodMinutes *int
-	// CollectMetricsFrom is the period to collect metrics to create the dump
-	CollectMetricsFrom *string `json:"collectmetricsfrom"`
+	// SupportPacketMetricsDays is the period to collect metrics to create the dump for the
+	// support packet.
+	SupportPacketMetricsDays *int `json:"supportpacketmetricsdays"`
 }
 
 func (c *configuration) SetDefaults() {
@@ -93,8 +94,8 @@ func (c *configuration) SetDefaults() {
 	if c.FileStoreCleanupPeriodMinutes == nil {
 		c.FileStoreCleanupPeriodMinutes = model.NewInt(120)
 	}
-	if c.CollectMetricsFrom == nil {
-		c.CollectMetricsFrom = model.NewString("3_days")
+	if c.SupportPacketMetricsDays == nil {
+		c.SupportPacketMetricsDays = model.NewInt(1)
 	}
 }
 
@@ -107,6 +108,9 @@ func (c *configuration) IsValid() error {
 	}
 	if *c.BodySizeLimitBytes < 100 {
 		return errors.New("openmetrics body size is not realistic, should be greater than 100 bytes")
+	}
+	if *c.SupportPacketMetricsDays < 1 {
+		return errors.New("at least one day of metrics should be included to the support packet")
 	}
 	return nil
 }
