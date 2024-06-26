@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"path/filepath"
 	"testing"
 
@@ -13,6 +14,10 @@ func TestDeleteDump(t *testing.T) {
 		DriverName: "local",
 		Directory:  t.TempDir(),
 	})
+	require.NoError(t, err)
+
+	testFile := "test.txt"
+	_, err = fs.WriteFile(bytes.NewReader([]byte("random text")), testFile)
 	require.NoError(t, err)
 
 	plugin := &Plugin{
@@ -47,5 +52,10 @@ func TestDeleteDump(t *testing.T) {
 		success, err := job.DeleteDump(plugin)
 		require.NoError(t, err)
 		require.False(t, success)
+
+		// should not delete other files
+		b, err := fs.ReadFile(testFile)
+		require.NoError(t, err)
+		require.Equal(t, "random text", string(b))
 	})
 }

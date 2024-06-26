@@ -182,8 +182,8 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if ok, err := jobs[id].DeleteDump(p); err != nil {
-		p.API.LogError("dump could not be deleted", "id", jobs[id].ID, "err", err.Error())
+	if ok, err2 := jobs[id].DeleteDump(p); err2 != nil {
+		p.API.LogError("dump could not be deleted", "id", jobs[id].ID, "err", err2.Error())
 	} else if ok {
 		p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
 	}
@@ -262,19 +262,21 @@ func (p *Plugin) UpdateJob(ctx context.Context, job *DumpJob) error {
 }
 
 func (j *DumpJob) DeleteDump(p *Plugin) (bool, error) {
-	// do not delete if the dump location is not under the plugin-data directory
-	// there is a corner case that; if the job receives a deletion request,
+	// do not delete if the dump location is not under the plugin-data directory.
+	//
+	// there is a corner case that is; if the job receives a deletion request while not finished yet,
 	// the dump location will be empty and therefore `filepath.Dir(jobs[id].DumpLocation)`
-	// will return "." which would tell fileBackend to delete entire data directory.
+	// will return "." which would implicitly tell fileBackend to delete entire data directory.
+	// to avoid this issue, we are checking the leading directory.
 	if loc := j.DumpLocation; strings.HasPrefix(loc, filepath.Join(pluginDataDir, PluginName)) {
 		err := p.fileBackend.RemoveDirectory(filepath.Dir(j.DumpLocation))
 		if err != nil {
 			return false, err
-		} else {
-			return true, nil
 		}
+		return true, nil
 	}
 
-	// there were no dump under the plugin-data/mattermost-plugin-metrics so it's been ignored
+	// there were no dump under the plugin-data/mattermost-plugin-metrics for this job
+	// so it's been ignored.
 	return false, nil
 }
