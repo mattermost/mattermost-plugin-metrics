@@ -257,6 +257,7 @@ github.com/hashicorp/consul/api v1.25.1 h1:CqrdhYzc8XZuPnhIYZWH45toM0LB9ZeYr/gvp
 github.com/hashicorp/consul/api v1.25.1/go.mod h1:iiLVwR/htV7mas/sy0O+XSuEnrdBUUydemjxcUrAt4g=
 github.com/hashicorp/cronexpr v1.1.2 h1:wG/ZYIKT+RT3QkOdgYc+xsKWVRgnxJ1OJtjjy84fJ9A=
 github.com/hashicorp/cronexpr v1.1.2/go.mod h1:P4wA0KBl9C5q2hABiMO7cp6jcIg96CDh1Efb3g1PWA4=
+github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/errwrap v1.1.0 h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=
 github.com/hashicorp/errwrap v1.1.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.2 h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=
@@ -352,8 +353,8 @@ github.com/mattermost/ldap v0.0.0-20231116144001-0f480c025956 h1:Y1Tu/swM31pVwwb
 github.com/mattermost/ldap v0.0.0-20231116144001-0f480c025956/go.mod h1:SRl30Lb7/QoYyohYeVBuqYvvmXSZJxZgiV3Zf6VbxjI=
 github.com/mattermost/logr/v2 v2.0.21 h1:CMHsP+nrbRlEC4g7BwOk1GAnMtHkniFhlSQPXy52be4=
 github.com/mattermost/logr/v2 v2.0.21/go.mod h1:kZkB/zqKL9e+RY5gB3vGpsyenC+TpuiOenjMkvJJbzc=
-github.com/mattermost/mattermost/server/public v0.1.1 h1:T5UtZ0SB3rZvhiKFUxkPn4fNrEQTXAcmCHVkRct1dpk=
-github.com/mattermost/mattermost/server/public v0.1.1/go.mod h1:WeqCPudYLqk4HjjGvCMJwhtHMVvcNUTHIbrLmLjAD+4=
+github.com/mattermost/mattermost/server/public v0.1.5-0.20240628142051-59e413e31b37 h1:kL1piLaVyu8wHIn4k/Ozv6OhYbAtyBiFpHI+w2S/rsU=
+github.com/mattermost/mattermost/server/public v0.1.5-0.20240628142051-59e413e31b37/go.mod h1:PDPb/iqzJJ5ZvK/m70oDF55AXN/cOvVFj96Yu4e6j+Q=
 github.com/mattermost/mattermost/server/v8 v8.0.0-20240326175929-75cf1f9d931a h1:yPsYDtyoI98gzIPyAt7AxgtYqFq9qhp6oA1ss3O2hp8=
 github.com/mattermost/mattermost/server/v8 v8.0.0-20240326175929-75cf1f9d931a/go.mod h1:qQjPPGKiugHw6Tunlmq3cVDkKFFbgtMxIvyNJoN+p3Y=
 github.com/mattermost/squirrel v0.4.0 h1:azf9LZ+8JUTAvwt/njB1utkPqWQ6e7Rje2ya5N0P2i4=

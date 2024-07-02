@@ -7,7 +7,7 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.1
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/mattermost/mattermost/server/public v0.1.1
+	github.com/mattermost/mattermost/server/public v0.1.5-0.20240628142051-59e413e31b37
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20240326175929-75cf1f9d931a
 	github.com/mattermost/squirrel v0.4.0
 	github.com/oklog/ulid v1.3.1
@@ -44,7 +44,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.2 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect

@@ -87,6 +87,17 @@ func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, 
 		return nil, err
 	}
 
+	// Add plugin specific metadata
+	customMetadata := map[string]any{
+		"min": min.UnixMilli(),
+		"max": max.UnixMilli(),
+	}
+
+	_, err = p.client.System.GeneratePacketMetadata(dumpDir, customMetadata)
+	if err != nil {
+		return nil, err
+	}
+
 	err = compressDirectory(dumpDir, tempZipFile)
 	if err != nil {
 		return nil, err
