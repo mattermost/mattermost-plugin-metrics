@@ -56,7 +56,6 @@ loop:
 				continue
 			}
 		case <-p.closeChan:
-			p.API.LogDebug("Filestore sync job stopped")
 			return
 		}
 	}
