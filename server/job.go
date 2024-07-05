@@ -182,8 +182,9 @@ func (p *Plugin) DeleteJob(ctx context.Context, id string) error {
 		return nil
 	}
 
-	if ok, err2 := jobs[id].DeleteDump(p); err2 != nil {
-		p.API.LogError("dump could not be deleted", "id", jobs[id].ID, "err", err2.Error())
+	ok, err := jobs[id].DeleteDump(p);
+	if  err != nil {
+		p.API.LogError("dump could not be deleted", "id", jobs[id].ID, "err", err.Error())
 	} else if ok {
 		p.API.LogDebug("dump deleted", "id", jobs[id].ID, "file", jobs[id].DumpLocation)
 	}
