@@ -119,6 +119,15 @@ func (p *Plugin) OnActivate() error {
 		p.singletonLockAcquired = true
 	}
 
+	// The metrics plugin is dependent on the metrics endpoint being expoesed, so we need to ensure it is enabled.
+	if cfg := p.API.GetUnsanitizedConfig(); cfg.MetricsSettings.Enable == nil || !*cfg.MetricsSettings.Enable {
+		p.API.LogInfo("Enabling metrics...")
+		cfg.MetricsSettings.Enable = mmModel.NewBool(true)
+		if err2 := p.API.SaveConfig(cfg); err2 != nil {
+			return fmt.Errorf("failed to save config: %w", err2)
+		}
+	}
+
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
 
