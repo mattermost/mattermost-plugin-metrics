@@ -211,7 +211,7 @@ func (p *Plugin) OnActivate() error {
 					}
 					currentList = list
 
-					sync, err := generateTargetGroup(p.API.GetConfig(), list)
+					sync, err := p.generateTargetGroup(p.API.GetConfig(), list)
 					if err != nil {
 						p.API.LogError("Could not genarate target group for cluster", "error", err.Error())
 						return
@@ -224,7 +224,7 @@ func (p *Plugin) OnActivate() error {
 			}
 		}()
 	} else {
-		sync, err := generateTargetGroup(p.API.GetConfig(), nil)
+		sync, err := p.generateTargetGroup(p.API.GetConfig(), nil)
 		if err != nil {
 			return fmt.Errorf("could not set scrape target :%w", err)
 		}
