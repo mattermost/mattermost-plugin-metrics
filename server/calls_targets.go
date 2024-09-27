@@ -12,6 +12,10 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 )
 
+const (
+	callsPluginID = "com.mattermost.calls"
+)
+
 func resolveURL(u string, timeout time.Duration) ([]net.IP, string, error) {
 	parsed, err := url.Parse(u)
 	if err != nil {
@@ -55,6 +59,7 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 			{
 				promModel.AddressLabel:     promModel.LabelValue(net.JoinHostPort(host, port)),
 				promModel.MetricsPathLabel: promModel.LabelValue(fmt.Sprintf("/plugins/%s/metrics", callsPluginID)),
+				promModel.JobLabel:         "calls",
 			},
 		}
 	} else {
@@ -62,6 +67,7 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 			targets = append(targets, promModel.LabelSet{
 				promModel.AddressLabel:     promModel.LabelValue(net.JoinHostPort(nodes[i].Hostname, port)),
 				promModel.MetricsPathLabel: promModel.LabelValue(fmt.Sprintf("/plugins/%s/metrics", callsPluginID)),
+				promModel.JobLabel:         "calls",
 			})
 		}
 	}
@@ -78,6 +84,7 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 			for _, ip := range ips {
 				targets = append(targets, promModel.LabelSet{
 					promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(ip.String(), port)),
+					promModel.JobLabel:     "calls",
 				})
 			}
 		}
