@@ -177,29 +177,34 @@ func (p *Plugin) OnActivate() error {
 	}
 	manager.ApplyConfig(scpCfg)
 
-	if p.isHA() {
-		p.waitGroup.Add(1)
-		go func() {
-			defer p.waitGroup.Done()
+	// In HA, we want to continuously check for changes to the cluster (e.g. nodes joining/leaving).
+	// In not-HA, we still want to regenerate targets in case plugins
+	// providing metrics (e.g. Calls) started after we did.
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
 
-			// a minute should be the smallest amount of time to ping the table
-			// as the default scrape interval is already a minute.
-			ticker := time.NewTicker(time.Minute)
-			defer ticker.Stop()
+		// a minute should be the smallest amount of time to ping the table
+		// as the default scrape interval is already a minute.
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
 
+		var db *sqlx.DB
+		if p.isHA() {
 			idb, err := p.client.Store.GetMasterDB()
 			if err != nil {
 				p.API.LogError("Could not initiate the database connection", "error", err.Error())
 				return
 			}
-			db := sqlx.NewDb(idb, p.client.Store.DriverName())
+			db = sqlx.NewDb(idb, p.client.Store.DriverName())
 			defer db.Close()
+		}
 
-			var currentList []*mmModel.ClusterDiscovery
-
-			for {
-				select {
-				case <-ticker.C:
+		var currentList []*mmModel.ClusterDiscovery
+		for {
+			select {
+			case <-ticker.C:
+				if p.isHA() {
 					list, err := pingClusterDiscoveryTable(db, *p.API.GetConfig().ClusterSettings.ClusterName)
 					if err != nil {
 						p.API.LogError("Could not ping the cluster discovery table", "error", err.Error())
@@ -210,26 +215,20 @@ func (p *Plugin) OnActivate() error {
 						continue
 					}
 					currentList = list
+				}
 
-					sync, err := p.generateTargetGroup(p.API.GetConfig(), list)
-					if err != nil {
-						p.API.LogError("Could not genarate target group for cluster", "error", err.Error())
-						return
-					}
-					syncCh <- sync
-				case <-p.closeChan:
-					p.API.LogDebug("Cluster ping process stopped")
+				sync, err := p.generateTargetGroup(p.API.GetConfig(), currentList)
+				if err != nil {
+					p.API.LogError("Could not genarate target group for cluster", "error", err.Error())
 					return
 				}
+				syncCh <- sync
+			case <-p.closeChan:
+				p.API.LogDebug("Cluster ping process stopped")
+				return
 			}
-		}()
-	} else {
-		sync, err := p.generateTargetGroup(p.API.GetConfig(), nil)
-		if err != nil {
-			return fmt.Errorf("could not set scrape target :%w", err)
 		}
-		syncCh <- sync
-	}
+	}()
 
 	p.waitGroup.Add(1)
 	go func() {
