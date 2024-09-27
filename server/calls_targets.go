@@ -51,7 +51,7 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 		return nil, nil
 	}
 
-	p.API.LogDebug("calls plugin running, generating targets")
+	p.API.LogDebug("generateCallsTargets: calls plugin running, generating targets")
 
 	var targets []promModel.LabelSet
 	if len(nodes) < 2 {
@@ -78,7 +78,7 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 			// Since RTCD can be DNS load balanced, we need to resolve its hostname to figure out if there's more than a single node behind it.
 			ips, port, err := resolveURL(rtcdURL, 5*time.Second)
 			if err != nil {
-				p.API.LogWarn("failed to resolve rtcd URL", "err", err.Error())
+				p.API.LogWarn("generateCallsTargets: failed to resolve rtcd URL", "err", err.Error())
 			}
 
 			for _, ip := range ips {
