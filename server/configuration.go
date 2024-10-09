@@ -232,36 +232,36 @@ func (p *Plugin) isHA() bool {
 	return cfg.ClusterSettings.Enable != nil && *cfg.ClusterSettings.Enable
 }
 
-func generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) (map[string][]*targetgroup.Group, error) {
+func (p *Plugin) generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) (map[string][]*targetgroup.Group, error) {
 	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
 	}
 
 	sync := make(map[string][]*targetgroup.Group)
-	if nodes == nil || len(nodes) < 2 {
+	var targets []promModel.LabelSet
+	if len(nodes) < 2 {
 		if host == "" {
 			host = "localhost"
 		}
-
-		sync["prometheus"] = []*targetgroup.Group{
+		targets = []promModel.LabelSet{
 			{
-				Targets: []promModel.LabelSet{
-					{
-						promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, port)),
-					},
-				},
+				promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, port)),
 			},
 		}
-
-		return sync, nil
+	} else {
+		targets = make([]promModel.LabelSet, len(nodes))
+		for i, node := range nodes {
+			targets[i] = promModel.LabelSet{
+				promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
+			}
+		}
 	}
 
-	targets := make([]promModel.LabelSet, len(nodes))
-	for i, node := range nodes {
-		targets[i] = promModel.LabelSet{
-			promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
-		}
+	if callsTargets, err := p.generateCallsTargets(appCfg, host, port, nodes); err != nil {
+		p.API.LogWarn("failed to generate calls targets", "err", err.Error())
+	} else {
+		targets = append(targets, callsTargets...)
 	}
 
 	sync["prometheus"] = []*targetgroup.Group{

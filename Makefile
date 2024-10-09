@@ -13,6 +13,10 @@ DEFAULT_GOARCH := $(shell go env GOARCH)
 
 export GO111MODULE=on
 
+# We need to export GOBIN to allow it to be set
+# for processes spawned from the Makefile
+export GOBIN ?= $(PWD)/bin
+
 # You can include assets this directory into the bundle. This can be e.g. used to include profile pictures.
 ASSETS_DIR ?= assets
 
@@ -310,6 +314,12 @@ ifneq ($(HAS_SERVER),)
 	$(GO) test $(GO_TEST_FLAGS) -coverprofile=server/coverage.txt ./server/...
 	$(GO) tool cover -html=server/coverage.txt
 endif
+
+## Create plugin server mock files
+.PHONY: server-mocks
+server-mocks:
+	$(GO) install github.com/vektra/mockery/v2/...@v2.40.3
+	$(GOBIN)/mockery
 
 ## Extract strings for translation from the source code.
 .PHONY: i18n-extract
