@@ -170,6 +170,8 @@ ifneq ($(HAS_SERVER),)
 
 	@echo Running golangci-lint
 	golangci-lint run ./...
+	$(GO) install github.com/mattermost/mattermost-govet/v2@3f08281c344327ac09364f196b15f9a81c7eff08
+	$(GO) vet -vettool=$(GOBIN)/mattermost-govet -license -license.year=2023 ./...
 endif
 
 ## Builds the server, if it exists, for all supported architectures, unless MM_SERVICESETTINGS_ENABLEDEVELOPER is set.

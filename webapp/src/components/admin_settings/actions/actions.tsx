@@ -1,3 +1,6 @@
+// Copyright (c) 2023-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {Client4} from 'mattermost-redux/client';
 
 import {DateRange} from 'react-day-picker';
