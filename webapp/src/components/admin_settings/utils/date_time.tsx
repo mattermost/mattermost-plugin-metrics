@@ -1,3 +1,6 @@
+// Copyright (c) 2023-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import React, {ReactElement} from 'react';
 import {IntlProvider, FormattedTime, FormattedDate} from 'react-intl';
 

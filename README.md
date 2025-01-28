@@ -69,4 +69,4 @@ Feel free to join the [Developers: Performance](https://community.mattermost.com
 
 ### License
 
-See [LICENSE](LICENSE) for licensing information. Your contributions to this open-source project are welcome!
+See [LICENSE](LICENSE.txt) for licensing information. Your contributions to this open-source project are welcome!
