@@ -42,13 +42,15 @@ func TestGenerateCallsTargets(t *testing.T) {
 		},
 	}
 
-	cfg := &model.Config{}
+	cfg := &configuration{}
 	cfg.SetDefaults()
+	appCfg := &model.Config{}
+	appCfg.SetDefaults()
 
 	t.Run("plugin not installed", func(t *testing.T) {
 		mockAPI.On("GetPluginStatus", callsPluginID).Return(&model.PluginStatus{}, model.NewAppError("GetPluginStatus", "Plugin is not installed.", nil, "", http.StatusNotFound)).Once()
 
-		targets, err := p.generateCallsTargets(cfg, "localhost", "8067", nil)
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", nil)
 		require.EqualError(t, err, "generateCallsTargets: failed to get calls plugin status: GetPluginStatus: Plugin is not installed.")
 		require.Empty(t, targets)
 	})
@@ -59,7 +61,7 @@ func TestGenerateCallsTargets(t *testing.T) {
 		}, nil).Once()
 		mockAPI.On("LogDebug", "generateCallsTargets: calls plugin is not running").Return().Once()
 
-		targets, err := p.generateCallsTargets(cfg, "localhost", "8067", nil)
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", nil)
 		require.NoError(t, err)
 		require.Empty(t, targets)
 	})
@@ -70,7 +72,7 @@ func TestGenerateCallsTargets(t *testing.T) {
 		}, nil).Once()
 		mockAPI.On("LogDebug", "generateCallsTargets: calls plugin running, generating targets").Return().Once()
 
-		targets, err := p.generateCallsTargets(cfg, "localhost", "8067", nil)
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", nil)
 		require.NoError(t, err)
 		require.Equal(t, []promModel.LabelSet{
 			{
@@ -87,7 +89,7 @@ func TestGenerateCallsTargets(t *testing.T) {
 		}, nil).Once()
 		mockAPI.On("LogDebug", "generateCallsTargets: calls plugin running, generating targets").Return().Once()
 
-		targets, err := p.generateCallsTargets(cfg, "localhost", "8067", []*model.ClusterDiscovery{
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", []*model.ClusterDiscovery{
 			{
 				Hostname: "192.168.1.1",
 			},
@@ -110,17 +112,51 @@ func TestGenerateCallsTargets(t *testing.T) {
 		}, targets)
 	})
 
-	t.Run("rtcd", func(t *testing.T) {
+	t.Run("rtcd - EnableNodeExporterTargets=true", func(t *testing.T) {
+		*cfg.NodeExporterPort = 9101
+
+		mockAPI.On("GetPluginStatus", callsPluginID).Return(&model.PluginStatus{
+			State: model.PluginStateRunning,
+		}, nil).Once()
+		mockAPI.On("LogDebug", "generateCallsTargets: calls plugin running, generating targets").Return().Once()
+		mockAPI.On("LogDebug", "generateCallsTargets: adding node exporter target for rtcd node", "host", "localhost", "port", "9101").Return().Once()
+
+		appCfg.PluginSettings.Plugins[callsPluginID] = map[string]any{
+			"rtcdserviceurl": "http://localhost:8045",
+		}
+
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", nil)
+		require.NoError(t, err)
+		require.Equal(t, []promModel.LabelSet{
+			{
+				promModel.AddressLabel:     "localhost:8067",
+				promModel.MetricsPathLabel: "/plugins/com.mattermost.calls/metrics",
+				promModel.JobLabel:         "calls",
+			},
+			{
+				promModel.AddressLabel: "127.0.0.1:8045",
+				promModel.JobLabel:     "calls",
+			},
+			{
+				promModel.AddressLabel: "127.0.0.1:9101",
+				promModel.JobLabel:     "node",
+			},
+		}, targets)
+	})
+
+	t.Run("rtcd - EnableNodeExporterTargets=false", func(t *testing.T) {
+		*cfg.EnableNodeExporterTargets = false
+
 		mockAPI.On("GetPluginStatus", callsPluginID).Return(&model.PluginStatus{
 			State: model.PluginStateRunning,
 		}, nil).Once()
 		mockAPI.On("LogDebug", "generateCallsTargets: calls plugin running, generating targets").Return().Once()
 
-		cfg.PluginSettings.Plugins[callsPluginID] = map[string]any{
+		appCfg.PluginSettings.Plugins[callsPluginID] = map[string]any{
 			"rtcdserviceurl": "http://localhost:8045",
 		}
 
-		targets, err := p.generateCallsTargets(cfg, "localhost", "8067", nil)
+		targets, err := p.generateCallsTargets(cfg, appCfg, "localhost", "8067", nil)
 		require.NoError(t, err)
 		require.Equal(t, []promModel.LabelSet{
 			{

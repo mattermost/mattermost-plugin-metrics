@@ -44,7 +44,7 @@ type configuration struct {
 	EnableMetadataStorage *bool
 	// Scrape interval is the time between polling the /metrics endpoint.
 	ScrapeIntervalSeconds *int
-	// Screpe timeout tells scraper to give up on the poll for a single scrape attempt.
+	// Scrape timeout tells scraper to give up on the poll for a single scrape attempt.
 	ScrapeTimeoutSeconds *int
 	// RetentionDurationDays defines the retention time for the tsdb blocks.
 	RetentionDurationDays *int
@@ -55,6 +55,10 @@ type configuration struct {
 	// SupportPacketMetricsDays is the period to collect metrics to create the dump for the
 	// support packet.
 	SupportPacketMetricsDays *int `json:"supportpacketmetricsdays"`
+	// EnableNodeExporterTargets controls whether to enable node exporter targets.
+	EnableNodeExporterTargets *bool
+	// NodeExporterPort is the port on which the node exporter is running (default 9100).
+	NodeExporterPort *int
 }
 
 func (c *configuration) SetDefaults() {
@@ -100,6 +104,12 @@ func (c *configuration) SetDefaults() {
 	if c.SupportPacketMetricsDays == nil {
 		c.SupportPacketMetricsDays = model.NewInt(1)
 	}
+	if c.EnableNodeExporterTargets == nil {
+		c.EnableNodeExporterTargets = model.NewBool(true)
+	}
+	if c.NodeExporterPort == nil {
+		c.NodeExporterPort = model.NewInt(9100)
+	}
 }
 
 func (c *configuration) IsValid() error {
@@ -114,6 +124,9 @@ func (c *configuration) IsValid() error {
 	}
 	if *c.SupportPacketMetricsDays < 1 {
 		return errors.New("at least one day of metrics should be included to the support packet")
+	}
+	if *c.NodeExporterPort < 1 || *c.NodeExporterPort > 65535 {
+		return errors.New("node exporter port should be between 1 and 65535")
 	}
 	return nil
 }
@@ -164,6 +177,18 @@ func (p *Plugin) setConfiguration(configuration *configuration) error {
 	p.configuration = configuration
 
 	return nil
+}
+
+func (p *Plugin) getConfiguration() (*configuration, error) {
+	p.configurationLock.Lock()
+	defer p.configurationLock.Unlock()
+
+	if p.configuration == nil {
+		p.configuration = new(configuration)
+		p.configuration.SetDefaults()
+	}
+
+	return p.configuration.Clone()
 }
 
 // OnConfigurationChange is invoked when configuration changes may have been made.
@@ -236,6 +261,11 @@ func (p *Plugin) isHA() bool {
 }
 
 func (p *Plugin) generateTargetGroup(appCfg *model.Config, nodes []*model.ClusterDiscovery) (map[string][]*targetgroup.Group, error) {
+	cfg, err := p.getConfiguration()
+	if err != nil {
+		return nil, fmt.Errorf("could not get plugin configuration: %w", err)
+	}
+
 	host, port, err := net.SplitHostPort(*appCfg.MetricsSettings.ListenAddress)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the listen address %q", *appCfg.MetricsSettings.ListenAddress)
@@ -252,16 +282,34 @@ func (p *Plugin) generateTargetGroup(appCfg *model.Config, nodes []*model.Cluste
 				promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, port)),
 			},
 		}
+		if *cfg.EnableNodeExporterTargets {
+			nodePort := fmt.Sprintf("%d", *cfg.NodeExporterPort)
+			p.API.LogDebug("adding node exporter target", "host", host, "port", nodePort)
+			targets = append(targets, promModel.LabelSet{
+				promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(host, nodePort)),
+				promModel.JobLabel:     "node",
+			})
+		}
+
 	} else {
-		targets = make([]promModel.LabelSet, len(nodes))
-		for i, node := range nodes {
-			targets[i] = promModel.LabelSet{
+		targets = make([]promModel.LabelSet, len(nodes)*2)
+		for _, node := range nodes {
+			targets = append(targets, promModel.LabelSet{
 				promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, port)),
+			})
+
+			if *cfg.EnableNodeExporterTargets {
+				nodePort := fmt.Sprintf("%d", *cfg.NodeExporterPort)
+				p.API.LogDebug("adding node exporter target", "host", host, "port", nodePort)
+				targets = append(targets, promModel.LabelSet{
+					promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(node.Hostname, nodePort)),
+					promModel.JobLabel:     "node",
+				})
 			}
 		}
 	}
 
-	if callsTargets, err := p.generateCallsTargets(appCfg, host, port, nodes); err != nil {
+	if callsTargets, err := p.generateCallsTargets(cfg, appCfg, host, port, nodes); err != nil {
 		p.API.LogWarn("failed to generate calls targets", "err", err.Error())
 	} else {
 		targets = append(targets, callsTargets...)
