@@ -41,7 +41,7 @@ func resolveURL(u string, timeout time.Duration) ([]net.IP, string, error) {
 	return ips, port, nil
 }
 
-func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, nodes []*model.ClusterDiscovery) ([]promModel.LabelSet, error) {
+func (p *Plugin) generateCallsTargets(cfg *configuration, appCfg *model.Config, host, port string, nodes []*model.ClusterDiscovery) ([]promModel.LabelSet, error) {
 	// First, figure out if Calls is running. If so, add the plugin metrics endpoint to the targets.
 	// Also, check if the external RTCD service is configured, in which case add its endpoints to targets.
 	status, err := p.API.GetPluginStatus(callsPluginID)
@@ -89,6 +89,15 @@ func (p *Plugin) generateCallsTargets(appCfg *model.Config, host, port string, n
 					promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(ip.String(), port)),
 					promModel.JobLabel:     "calls",
 				})
+
+				if *cfg.EnableNodeExporterTargets {
+					nodePort := fmt.Sprintf("%d", *cfg.NodeExporterPort)
+					p.API.LogDebug("generateCallsTargets: adding node exporter target for rtcd node", "host", host, "port", nodePort)
+					targets = append(targets, promModel.LabelSet{
+						promModel.AddressLabel: promModel.LabelValue(net.JoinHostPort(ip.String(), nodePort)),
+						promModel.JobLabel:     "node",
+					})
+				}
 			}
 		}
 	}
