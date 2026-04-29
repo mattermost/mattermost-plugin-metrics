@@ -33,6 +33,9 @@ func newHandler(plugin *Plugin) *handler {
 	tsdb := root.PathPrefix("/tsdb").Subrouter()
 	tsdb.HandleFunc("/stats", handler.getStatsHandler).Methods(http.MethodGet)
 
+	metrics := root.PathPrefix("/metrics").Subrouter()
+	metrics.HandleFunc("/query_batch", handler.queryBatchHandler).Methods(http.MethodPost)
+
 	jobs := root.PathPrefix("/jobs").Subrouter()
 	jobs.HandleFunc("", handler.getAllJobsHandler).Methods(http.MethodGet)
 	jobs.HandleFunc("/create", handler.createJobHandler).Methods(http.MethodPost)
@@ -175,6 +178,39 @@ func (h *handler) downloadJobHandler(w http.ResponseWriter, r *http.Request) {
 
 	appCfg := h.plugin.API.GetConfig()
 	web.WriteFileResponse(filepath.Base(job.DumpLocation), "application/zip", 0, time.Now(), *appCfg.ServiceSettings.WebserverMode, fr, true, w, r)
+}
+
+func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
+	var req BatchQueryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Queries) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+		return
+	}
+	if len(req.Queries) > 50 {
+		http.Error(w, "too many queries (max 50)", http.StatusBadRequest)
+		return
+	}
+
+	results := make([]QueryResult, len(req.Queries))
+	for i, expr := range req.Queries {
+		results[i] = h.plugin.QueryRange(r.Context(), QueryRequest{
+			Query: expr,
+			Start: req.Start,
+			End:   req.End,
+			Step:  req.Step,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		h.plugin.API.LogError("error marshaling batch query results", "err", err)
+	}
 }
 
 func (h *handler) getStatsHandler(w http.ResponseWriter, _ *http.Request) {

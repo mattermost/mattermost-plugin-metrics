@@ -6,6 +6,7 @@ import {Client4} from 'mattermost-redux/client';
 import {DateRange} from 'react-day-picker';
 
 import {Job, TSDBStats} from '../types/types';
+import {BatchQueryRequest, QueryResult} from '../dashboard/types';
 import {manifest} from '@/manifest';
 
 export function getTSDBStats() {
@@ -54,6 +55,17 @@ export async function downloadJob(id: string) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+export function queryBatch(req: BatchQueryRequest): Promise<QueryResult[]> {
+    return Client4.doFetch<QueryResult[]>(
+        `${Client4.getUrl()}/plugins/${manifest.id}/metrics/query_batch`,
+        {
+            method: 'post',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(req),
+        },
+    );
 }
 
 function extractFilename(input: string | null): string {

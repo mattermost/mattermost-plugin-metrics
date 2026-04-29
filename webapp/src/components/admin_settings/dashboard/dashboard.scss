@@ -1,0 +1,105 @@
+// Copyright (c) 2023-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
+.mm-dashboard {
+    padding: 16px 0;
+
+    &__toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    &__range-picker {
+        width: auto;
+        display: inline-block;
+    }
+
+    &__refresh-btn {
+        white-space: nowrap;
+    }
+
+    &__updated {
+        color: #888;
+        font-size: 12px;
+    }
+
+    &__error {
+        margin-bottom: 16px;
+    }
+
+    &__section {
+        margin-bottom: 8px;
+    }
+
+    &__section-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        background: #f4f4f4;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        cursor: pointer;
+        text-align: left;
+        margin-bottom: 0;
+
+        &:hover {
+            background: #ebebeb;
+        }
+    }
+
+    &__section-chevron {
+        display: inline-block;
+        font-size: 16px;
+        line-height: 1;
+        transform: rotate(0deg);
+        transition: transform 0.15s ease;
+        color: #555;
+
+        &--open {
+            transform: rotate(90deg);
+        }
+    }
+
+    &__grid {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+
+        @media (min-width: 1400px) {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        @media (max-width: 900px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    &__panel {
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        padding: 12px;
+        background: #fff;
+        min-width: 0; // prevent grid blowout
+    }
+
+    .u-legend {
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    &__panel-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+}
+
