@@ -59,11 +59,13 @@ func (p *Plugin) QueryRange(ctx context.Context, req QueryRequest) QueryResult {
 		return QueryResult{Query: req.Query, Error: "query engine not available"}
 	}
 
+	const minStep = time.Minute
+
 	start := time.Unix(req.Start, 0)
 	end := time.Unix(req.End, 0)
 	step := time.Duration(req.Step * float64(time.Second))
-	if step < time.Second {
-		step = time.Minute
+	if step < minStep {
+		step = minStep
 	}
 
 	q, err := engine.NewRangeQuery(ctx, db, nil, req.Query, start, end, step)

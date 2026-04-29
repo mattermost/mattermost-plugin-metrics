@@ -24,6 +24,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
     private rootRef = React.createRef<HTMLDivElement>();
     private expandedEl: HTMLElement | null = null;
+    private latestRequestId = 0;
 
     state: State = {
         results: [],
@@ -66,6 +67,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     }
 
     private fetchData = async () => {
+        const requestId = ++this.latestRequestId;
         const {timeRange} = this.state;
         const end = Math.floor(Date.now() / 1000);
         const start = end - timeRange.seconds;
@@ -74,8 +76,14 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         this.setState({loading: true, error: '', windowStart: start, windowEnd: end});
         try {
             const results = await queryBatch({start, end, step: timeRange.step, queries: expressions});
+            if (requestId !== this.latestRequestId) {
+                return;
+            }
             this.setState({results, loading: false, lastUpdated: new Date()});
         } catch (e) {
+            if (requestId !== this.latestRequestId) {
+                return;
+            }
             this.setState({loading: false, error: String(e)});
         }
     };
@@ -140,6 +148,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                         ))}
                     </select>
                     <button
+                        type='button'
                         className='btn btn-default mm-dashboard__refresh-btn'
                         onClick={this.fetchData}
                         disabled={loading}
@@ -170,6 +179,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                             className='mm-dashboard__section'
                         >
                             <button
+                                type='button'
                                 className='mm-dashboard__section-header'
                                 onClick={() => this.toggleSection(section.title)}
                                 aria-expanded={!isCollapsed}

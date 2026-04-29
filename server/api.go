@@ -196,6 +196,14 @@ func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "too many queries (max 50)", http.StatusBadRequest)
 		return
 	}
+	if req.Start <= 0 || req.End <= 0 || req.Start >= req.End {
+		http.Error(w, "start and end must be positive unix seconds with start < end", http.StatusBadRequest)
+		return
+	}
+	if req.Step <= 0 {
+		http.Error(w, "step must be > 0", http.StatusBadRequest)
+		return
+	}
 
 	results := make([]QueryResult, len(req.Queries))
 	for i, expr := range req.Queries {
