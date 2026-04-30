@@ -35,6 +35,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     private rootRef = React.createRef<HTMLDivElement>();
     private expandedEl: HTMLElement | null = null;
     private latestRequestId = 0;
+    private isUnmounted = false;
 
     state: State = {
         results: [],
@@ -54,6 +55,8 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     }
 
     componentWillUnmount() {
+        this.isUnmounted = true;
+        this.latestRequestId = -1;
         if (this.refreshTimer) {
             clearInterval(this.refreshTimer);
         }
@@ -86,12 +89,12 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         this.setState({loading: true, error: '', windowStart: start, windowEnd: end});
         try {
             const results = await queryBatch({start, end, step: activeRange.step, queries: expressions});
-            if (requestId !== this.latestRequestId) {
+            if (this.isUnmounted || requestId !== this.latestRequestId) {
                 return;
             }
             this.setState({results, loading: false, lastUpdated: new Date()});
         } catch (e) {
-            if (requestId !== this.latestRequestId) {
+            if (this.isUnmounted || requestId !== this.latestRequestId) {
                 return;
             }
             this.setState({loading: false, error: String(e)});
@@ -99,7 +102,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     };
 
     private handleRangeChange = (range: ActiveTimeRange) => {
-        this.setState({activeRange: range, results: []}, this.fetchData);
+        this.setState({activeRange: range, results: [], lastUpdated: null}, this.fetchData);
     };
 
     private handleChartRangeSelect = (start: number, end: number) => {
