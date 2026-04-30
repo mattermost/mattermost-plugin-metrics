@@ -50,7 +50,7 @@ func (p *Plugin) createDump(ctx context.Context, id string, minT, maxT time.Time
 		metaMax := time.UnixMilli(meta.MaxTime)
 		metaMin := time.UnixMilli(meta.MinTime)
 		if metaMax.Before(maxT) && metaMax.After(minT) {
-			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", maxT.String())
+			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", metaMax.String())
 
 			err = copyFromFileStore(dumpDir, b, p.fileBackend)
 			if err != nil {

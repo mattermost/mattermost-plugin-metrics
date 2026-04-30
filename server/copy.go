@@ -178,6 +178,7 @@ func compressDirectory(sourceDir, compressedFile string) error {
 		if err != nil {
 			return err
 		}
+		defer data.Close()
 
 		if _, err := io.Copy(tw, data); err != nil {
 			return err

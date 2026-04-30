@@ -19,7 +19,11 @@ async function pluginFetch<T = void>(path: string, options: Options = {}): Promi
     if (res.status === 204) {
         return null as T;
     }
-    return res.json() as Promise<T>;
+    const text = await res.text();
+    if (text.trim() === '') {
+        return null as T;
+    }
+    return JSON.parse(text) as T;
 }
 
 export function getTSDBStats() {
