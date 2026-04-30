@@ -283,10 +283,10 @@ const TOOLTIP_OFFSET = 12;
 
 function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string | undefined; containerWidth: number}) {
     const flipLeft = data.left + TOOLTIP_OFFSET + TOOLTIP_WIDTH > containerWidth;
-    const rawLeft = flipLeft
-        ? data.left - TOOLTIP_OFFSET - TOOLTIP_WIDTH
+    const left = flipLeft
+        ? data.left - TOOLTIP_OFFSET
         : data.left + TOOLTIP_OFFSET;
-    const left = Math.max(0, Math.min(rawLeft, containerWidth - TOOLTIP_WIDTH));
+    const transform = flipLeft ? 'translate(-100%, -50%)' : 'translateY(-50%)';
 
     return (
         <div
@@ -294,7 +294,7 @@ function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string 
                 position: 'absolute',
                 left,
                 top: data.top,
-                transform: 'translateY(-50%)',
+                transform,
                 background: 'rgba(20, 22, 25, 0.92)',
                 color: '#e0e0e0',
                 borderRadius: 4,
