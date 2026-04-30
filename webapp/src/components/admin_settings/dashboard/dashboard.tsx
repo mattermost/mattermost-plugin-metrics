@@ -4,19 +4,29 @@
 import React from 'react';
 
 import {queryBatch} from '../actions/actions';
-import {QueryResult, TIME_RANGES, TimeRange} from './types';
+import {ActiveTimeRange, QueryResult, QUICK_RANGES} from './types';
 import {SECTIONS, PANELS, buildQueryList} from './panels';
 import UPlotChart from './uplot_chart';
+import TimeRangePicker from './time_range_picker';
 import './dashboard.scss';
+
+const DEFAULT_RANGE: ActiveTimeRange = {
+    label: QUICK_RANGES[3].label, // Last 1 hour
+    step: QUICK_RANGES[3].step,
+    relative: true,
+    seconds: QUICK_RANGES[3].seconds,
+    start: 0,
+    end: 0,
+};
 
 type State = {
     results: QueryResult[];
     loading: boolean;
     error: string;
-    timeRange: TimeRange;
+    activeRange: ActiveTimeRange;
     lastUpdated: Date | null;
     collapsed: Set<string>;
-    windowStart: number; // unix seconds of last fetch window
+    windowStart: number;
     windowEnd: number;
 };
 
@@ -30,7 +40,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         results: [],
         loading: false,
         error: '',
-        timeRange: TIME_RANGES[1],
+        activeRange: DEFAULT_RANGE,
         lastUpdated: null,
         collapsed: new Set(),
         windowStart: 0,
@@ -68,14 +78,14 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
 
     private fetchData = async () => {
         const requestId = ++this.latestRequestId;
-        const {timeRange} = this.state;
-        const end = Math.floor(Date.now() / 1000);
-        const start = end - timeRange.seconds;
+        const {activeRange} = this.state;
+        const end = activeRange.relative ? Math.floor(Date.now() / 1000) : activeRange.end;
+        const start = activeRange.relative ? end - activeRange.seconds : activeRange.start;
         const {expressions} = buildQueryList();
 
         this.setState({loading: true, error: '', windowStart: start, windowEnd: end});
         try {
-            const results = await queryBatch({start, end, step: timeRange.step, queries: expressions});
+            const results = await queryBatch({start, end, step: activeRange.step, queries: expressions});
             if (requestId !== this.latestRequestId) {
                 return;
             }
@@ -88,9 +98,8 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         }
     };
 
-    private handleTimeRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const tr = TIME_RANGES.find((r) => r.label === e.target.value) ?? TIME_RANGES[1];
-        this.setState({timeRange: tr, results: []}, this.fetchData);
+    private handleRangeChange = (range: ActiveTimeRange) => {
+        this.setState({activeRange: range, results: []}, this.fetchData);
     };
 
     private toggleSection = (title: string) => {
@@ -106,7 +115,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     };
 
     render() {
-        const {results, loading, error, timeRange, lastUpdated, collapsed, windowStart, windowEnd} = this.state;
+        const {results, loading, error, activeRange, lastUpdated, collapsed, windowStart, windowEnd} = this.state;
         const {index} = buildQueryList();
 
         // Build per-panel result arrays (indexed against the flat PANELS list)
@@ -133,20 +142,10 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                 className='mm-dashboard'
             >
                 <div className='mm-dashboard__toolbar'>
-                    <select
-                        className='form-control mm-dashboard__range-picker'
-                        value={timeRange.label}
-                        onChange={this.handleTimeRangeChange}
-                    >
-                        {TIME_RANGES.map((r) => (
-                            <option
-                                key={r.label}
-                                value={r.label}
-                            >
-                                {r.label}
-                            </option>
-                        ))}
-                    </select>
+                    <TimeRangePicker
+                        value={activeRange}
+                        onChange={this.handleRangeChange}
+                    />
                     <button
                         type='button'
                         className='btn btn-default mm-dashboard__refresh-btn'

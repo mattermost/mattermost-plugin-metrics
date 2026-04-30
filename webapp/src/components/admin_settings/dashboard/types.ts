@@ -19,18 +19,33 @@ export type BatchQueryRequest = {
     queries: string[];
 };
 
-export type TimeRange = {
+export type QuickRange = {
     label: string;
     seconds: number;
-    step: number; // query step in seconds
+    step: number;
 };
 
-export const TIME_RANGES: TimeRange[] = [
-    {label: 'Last 15 min', seconds: 15 * 60, step: 60},
+export type ActiveTimeRange = {
+    label: string;
+    step: number;
+    relative: boolean;
+    seconds: number; // used when relative === true
+    start: number;   // used when relative === false
+    end: number;     // used when relative === false
+};
+
+export const QUICK_RANGES: QuickRange[] = [
+    {label: 'Last 5 minutes', seconds: 5 * 60, step: 60},
+    {label: 'Last 15 minutes', seconds: 15 * 60, step: 60},
+    {label: 'Last 30 minutes', seconds: 30 * 60, step: 60},
     {label: 'Last 1 hour', seconds: 60 * 60, step: 60},
-    {label: 'Last 6 hours', seconds: 6 * 60 * 60, step: 60},
+    {label: 'Last 3 hours', seconds: 3 * 60 * 60, step: 60},
+    {label: 'Last 6 hours', seconds: 6 * 60 * 60, step: 300},
+    {label: 'Last 12 hours', seconds: 12 * 60 * 60, step: 300},
     {label: 'Last 24 hours', seconds: 24 * 60 * 60, step: 300},
+    {label: 'Last 2 days', seconds: 2 * 24 * 60 * 60, step: 300},
     {label: 'Last 7 days', seconds: 7 * 24 * 60 * 60, step: 1800},
+    {label: 'Last 30 days', seconds: 30 * 24 * 60 * 60, step: 3600},
 ];
 
 export type PanelQuery = {
