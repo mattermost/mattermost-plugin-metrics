@@ -34,6 +34,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
     private rootRef = React.createRef<HTMLDivElement>();
     private expandedEl: HTMLElement | null = null;
+    private expandedElPrevMaxWidth = '';
     private latestRequestId = 0;
     private isUnmounted = false;
 
@@ -61,8 +62,9 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
             clearInterval(this.refreshTimer);
         }
         if (this.expandedEl) {
-            this.expandedEl.style.maxWidth = '';
+            this.expandedEl.style.maxWidth = this.expandedElPrevMaxWidth;
             this.expandedEl = null;
+            this.expandedElPrevMaxWidth = '';
         }
     }
 
@@ -71,6 +73,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         while (el) {
             const maxWidth = parseFloat(window.getComputedStyle(el).maxWidth);
             if (maxWidth > 0 && maxWidth < window.innerWidth) {
+                this.expandedElPrevMaxWidth = el.style.maxWidth;
                 el.style.maxWidth = 'none';
                 this.expandedEl = el;
                 return;
@@ -221,6 +224,14 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                                 <div className='mm-dashboard__grid'>
                                     {section.panels.map((panel, i) => {
                                         const absIdx = sectionOffset + i;
+                                        const filteredResults: QueryResult[] = [];
+                                        const filteredLegends: string[][] = [];
+                                        panelResults[absIdx].forEach((r, qi) => {
+                                            if (r) {
+                                                filteredResults.push(r);
+                                                filteredLegends.push(panelLegends[absIdx][qi] ?? []);
+                                            }
+                                        });
                                         return (
                                             <div
                                                 key={panel.title}
@@ -228,8 +239,8 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                                             >
                                                 <div className='mm-dashboard__panel-title'>{panel.title}</div>
                                                 <UPlotChart
-                                                    results={panelResults[absIdx].filter(Boolean)}
-                                                    legends={panelLegends[absIdx]}
+                                                    results={filteredResults}
+                                                    legends={filteredLegends}
                                                     unit={panel.unit}
                                                     startTime={windowStart || undefined}
                                                     endTime={windowEnd || undefined}
