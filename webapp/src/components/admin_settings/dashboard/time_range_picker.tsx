@@ -45,7 +45,9 @@ export default function TimeRangePicker({value, onChange}: Props) {
 
     useEffect(() => {
         if (!open) {
-            return undefined;
+            return () => {
+                // no listeners to remove
+            };
         }
         const handleMouseDown = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {

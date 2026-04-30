@@ -4,6 +4,7 @@
 import React from 'react';
 
 import {queryBatch} from '../actions/actions';
+
 import {ActiveTimeRange, QueryResult, QUICK_RANGES} from './types';
 import {SECTIONS, PANELS, buildQueryList} from './panels';
 import UPlotChart from './uplot_chart';
@@ -242,8 +243,8 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                                                     results={filteredResults}
                                                     legends={filteredLegends}
                                                     unit={panel.unit}
-                                                    startTime={windowStart || undefined}
-                                                    endTime={windowEnd || undefined}
+                                                    startTime={windowStart}
+                                                    endTime={windowEnd}
                                                     onTimeRangeSelect={this.handleChartRangeSelect}
                                                 />
                                             </div>

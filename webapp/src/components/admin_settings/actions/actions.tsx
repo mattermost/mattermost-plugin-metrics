@@ -3,28 +3,35 @@
 
 import {Client4} from 'mattermost-redux/client';
 
+import type {Options} from '@mattermost/types/client4';
 import {DateRange} from 'react-day-picker';
 
 import {Job, TSDBStats} from '../types/types';
 import {BatchQueryRequest, QueryResult} from '../dashboard/types';
 import {manifest} from '@/manifest';
 
+async function pluginFetch<T = void>(path: string, options: Options = {}): Promise<T> {
+    const url = `${Client4.getUrl()}/plugins/${manifest.id}${path}`;
+    const res = await fetch(url, Client4.getOptions(options));
+    if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+    }
+    if (res.status === 204) {
+        return null as T;
+    }
+    return res.json() as Promise<T>;
+}
+
 export function getTSDBStats() {
-    return Client4.doFetch<TSDBStats>(
-        `${Client4.getUrl()}/plugins/${manifest.id}/tsdb/stats`,
-        {method: 'get'},
-    );
+    return pluginFetch<TSDBStats>('/tsdb/stats', {method: 'get'});
 }
 
 export function getJobs() {
-    return Client4.doFetch<Job[]>(
-        `${Client4.getUrl()}/plugins/${manifest.id}/jobs`,
-        {method: 'get'},
-    );
+    return pluginFetch<Job[]>('/jobs', {method: 'get'});
 }
 
 export async function createJob(range: DateRange) {
-    return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/create`, {
+    return pluginFetch('/jobs/create', {
         method: 'post',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({min_t: range.from?.getTime(), max_t: range.to?.getTime()}),
@@ -32,15 +39,11 @@ export async function createJob(range: DateRange) {
 }
 
 export function deleteJob(id: string) {
-    return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/delete/${id}`, {
-        method: 'delete',
-    });
+    return pluginFetch(`/jobs/delete/${id}`, {method: 'delete'});
 }
 
 export async function deleteAllJobs() {
-    return Client4.doFetch(`${Client4.getUrl()}/plugins/${manifest.id}/jobs/deleteAll`, {
-        method: 'delete',
-    });
+    return pluginFetch('/jobs/deleteAll', {method: 'delete'});
 }
 
 export async function downloadJob(id: string) {
@@ -58,14 +61,11 @@ export async function downloadJob(id: string) {
 }
 
 export function queryBatch(req: BatchQueryRequest): Promise<QueryResult[]> {
-    return Client4.doFetch<QueryResult[]>(
-        `${Client4.getUrl()}/plugins/${manifest.id}/metrics/query_batch`,
-        {
-            method: 'post',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(req),
-        },
-    );
+    return pluginFetch<QueryResult[]>('/metrics/query_batch', {
+        method: 'post',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(req),
+    });
 }
 
 function extractFilename(input: string | null): string {

@@ -14,8 +14,8 @@ export type QueryResult = {
 
 export type BatchQueryRequest = {
     start: number; // unix seconds
-    end: number;   // unix seconds
-    step: number;  // seconds
+    end: number; // unix seconds
+    step: number; // seconds
     queries: string[];
 };
 
@@ -30,8 +30,8 @@ export type ActiveTimeRange = {
     step: number;
     relative: boolean;
     seconds: number; // used when relative === true
-    start: number;   // used when relative === false
-    end: number;     // used when relative === false
+    start: number; // used when relative === false
+    end: number; // used when relative === false
 };
 
 export const QUICK_RANGES: QuickRange[] = [
