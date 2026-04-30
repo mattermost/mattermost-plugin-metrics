@@ -102,6 +102,31 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         this.setState({activeRange: range, results: []}, this.fetchData);
     };
 
+    private handleChartRangeSelect = (start: number, end: number) => {
+        const durationSeconds = end - start;
+        let step = 60;
+        if (durationSeconds > 7 * 86400) {
+            step = 3600;
+        } else if (durationSeconds > 86400) {
+            step = 1800;
+        } else if (durationSeconds > 3600) {
+            step = 300;
+        }
+        const from = new Date(start * 1000);
+        const to = new Date(end * 1000);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const fmt = (d: Date) =>
+            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        this.handleRangeChange({
+            label: `${fmt(from)} to ${fmt(to)}`,
+            step,
+            relative: false,
+            seconds: 0,
+            start,
+            end,
+        });
+    };
+
     private toggleSection = (title: string) => {
         this.setState((prev) => {
             const collapsed = new Set(prev.collapsed);
@@ -205,6 +230,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                                                     unit={panel.unit}
                                                     startTime={windowStart || undefined}
                                                     endTime={windowEnd || undefined}
+                                                    onTimeRangeSelect={this.handleChartRangeSelect}
                                                 />
                                             </div>
                                         );

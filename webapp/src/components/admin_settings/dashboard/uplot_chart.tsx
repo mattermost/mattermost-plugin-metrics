@@ -14,6 +14,7 @@ type Props = {
     height?: number;
     startTime?: number; // unix seconds — fixes x-axis to the selected time window
     endTime?: number;   // unix seconds
+    onTimeRangeSelect?: (start: number, end: number) => void;
 };
 
 type TooltipData = {
@@ -134,16 +135,18 @@ function buildSeriesConfig(
     return series;
 }
 
-export default function UPlotChart({results, legends, unit, height = 160, startTime, endTime}: Props) {
+export default function UPlotChart({results, legends, unit, height = 160, startTime, endTime, onTimeRangeSelect}: Props) {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const plotRef = useRef<uPlot | null>(null);
     const [tooltip, setTooltip] = useState<TooltipData | null>(null);
 
-    // Use a ref so the setCursor hook always has the latest setter without
-    // triggering a chart rebuild when tooltip state changes.
+    // Use refs so hooks always have latest values without triggering chart rebuilds.
     const setTooltipRef = useRef(setTooltip);
     setTooltipRef.current = setTooltip;
+
+    const onTimeRangeSelectRef = useRef(onTimeRangeSelect);
+    onTimeRangeSelectRef.current = onTimeRangeSelect;
 
     const unitRef = useRef(unit);
     unitRef.current = unit;
@@ -177,10 +180,22 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
                     size: 60,
                 },
             ],
-            cursor: {},
+            cursor: {drag: {x: true, y: false}},
             legend: {show: true, live: false},
             padding: [8, 0, 0, 0],
             hooks: {
+                setSelect: [(u) => {
+                    const cb = onTimeRangeSelectRef.current;
+                    if (!cb || u.select.width <= 0) {
+                        return;
+                    }
+                    const selStart = u.posToVal(u.select.left, 'x');
+                    const selEnd = u.posToVal(u.select.left + u.select.width, 'x');
+                    if (selEnd > selStart) {
+                        cb(Math.round(selStart), Math.round(selEnd));
+                    }
+                    u.setSelect({left: 0, top: 0, width: 0, height: 0}, false);
+                }],
                 setCursor: [(u) => {
                     const idx = u.cursor.idx;
                     if (idx == null || idx < 0) {
