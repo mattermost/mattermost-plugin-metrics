@@ -284,10 +284,20 @@ const TOOLTIP_WIDTH = 260;
 const TOOLTIP_OFFSET = 12;
 
 function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string | undefined; containerWidth: number}) {
+    // Prefer right side; flip when the right edge would overflow.
     const flipLeft = data.left + TOOLTIP_OFFSET + TOOLTIP_WIDTH > containerWidth;
-    const left = flipLeft ?
+    let left = flipLeft ?
         data.left - TOOLTIP_OFFSET :
         data.left + TOOLTIP_OFFSET;
+
+    // Clamp so the tooltip stays inside the chart wrapper. With
+    // `translate(-100%, ...)` the effective left edge is `left - TOOLTIP_WIDTH`,
+    // so flipped tooltips need `left >= TOOLTIP_WIDTH`.
+    if (flipLeft) {
+        left = Math.max(left, TOOLTIP_WIDTH);
+    } else {
+        left = Math.min(left, Math.max(0, containerWidth - TOOLTIP_WIDTH));
+    }
     const transform = flipLeft ? 'translate(-100%, -50%)' : 'translateY(-50%)';
 
     return (
