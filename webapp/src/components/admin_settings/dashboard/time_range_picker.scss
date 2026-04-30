@@ -1,0 +1,132 @@
+// Copyright (c) 2023-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
+.mm-trp {
+    position: relative;
+    display: inline-flex;
+
+    &__trigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        max-width: 320px;
+    }
+
+    &__icon {
+        font-size: 14px;
+        opacity: 0.7;
+        flex-shrink: 0;
+    }
+
+    &__label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__chevron {
+        font-size: 12px;
+        flex-shrink: 0;
+        opacity: 0.6;
+    }
+
+    &__popover {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        z-index: 1000;
+        display: flex;
+        background: var(--center-channel-bg, #fff);
+        border: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.16);
+        border-radius: 4px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        min-width: 560px;
+    }
+
+    &__absolute {
+        flex: 0 0 240px;
+        padding: 16px;
+        border-right: 1px solid rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    &__abs-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.72);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+    }
+
+    &__abs-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--center-channel-color, #333);
+        margin: 0;
+    }
+
+    &__datetime {
+        font-size: 13px;
+        padding: 6px 10px;
+        height: auto;
+    }
+
+    &__abs-error {
+        font-size: 12px;
+        color: var(--error-text, #d24b4e);
+    }
+
+    &__apply {
+        margin-top: 4px;
+        align-self: stretch;
+    }
+
+    &__quick {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        min-width: 220px;
+    }
+
+    &__search {
+        font-size: 13px;
+        padding: 6px 10px;
+        height: auto;
+        margin-bottom: 8px;
+    }
+
+    &__quick-list {
+        overflow-y: auto;
+        max-height: 320px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__quick-item {
+        display: block;
+        width: 100%;
+        padding: 8px 12px;
+        text-align: left;
+        background: none;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        color: var(--center-channel-color, #333);
+        cursor: pointer;
+
+        &:hover {
+            background: rgba(var(--center-channel-color-rgb, 63, 67, 80), 0.08);
+        }
+
+        &--active {
+            border-left: 3px solid var(--button-bg, #1c58d9);
+            padding-left: 9px;
+            font-weight: 600;
+        }
+    }
+}

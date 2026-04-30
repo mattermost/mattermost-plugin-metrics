@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 
@@ -51,6 +52,9 @@ type Plugin struct {
 
 	// the local tsdb to be used for head block
 	db *tsdb.DB
+
+	// queryEngine is the PromQL engine used for dashboard queries
+	queryEngine *promql.Engine
 
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
@@ -147,6 +151,7 @@ func (p *Plugin) OnActivate() error {
 	if err != nil {
 		return fmt.Errorf("could not open target tsdb: %w", err)
 	}
+	p.queryEngine = p.newQueryEngine()
 
 	manager := scrape.NewManager(nil, p.logger, p.db)
 	syncCh := make(chan map[string][]*targetgroup.Group)

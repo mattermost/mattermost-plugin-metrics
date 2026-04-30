@@ -21,6 +21,11 @@
         "header": "Collect and store Mattermost performance data at regular intervals in a standard OpenMetrics format, without requiring third-party tool deployments. Data snapshots stored in a dump file can be consumed by a wide range of monitoring systems.",
         "settings": [
             {
+                "key": "Dashboard",
+                "type": "custom",
+                "display_name": "Performance Dashboard:"
+            },
+            {
                 "key": "Stats",
                 "type": "custom",
                 "display_name": "TSDB Stats:"
