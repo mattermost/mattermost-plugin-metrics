@@ -326,7 +326,7 @@ endif
 ## Create plugin server mock files
 .PHONY: server-mocks
 server-mocks:
-	$(GO) install github.com/vektra/mockery/v2/...@v2.40.3
+	$(GO) install github.com/vektra/mockery/v2/...@v2.53.3
 	$(GOBIN)/mockery
 
 ## Extract strings for translation from the source code.

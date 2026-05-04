@@ -85,7 +85,7 @@ func (p *Plugin) OnActivate() error {
 	// since this is true by default, and it will be true if it's actually false.
 	// see the discussion here: https://community.mattermost.com/core/pl/abd58h1majrx8y4xc9qrhtia9h
 	if p.API.GetConfig().FileSettings.AmazonS3SSL == nil {
-		fileSettings.AmazonS3SSL = mmModel.NewBool(false)
+		fileSettings.AmazonS3SSL = mmModel.NewPointer(false)
 	}
 
 	fileBackendSettings := filestore.NewFileBackendSettingsFromConfig(fileSettings, false, true)
@@ -130,7 +130,7 @@ func (p *Plugin) OnActivate() error {
 	if cfg := p.API.GetUnsanitizedConfig(); cfg.MetricsSettings.Enable == nil || !*cfg.MetricsSettings.Enable {
 		if lic := p.API.GetLicense(); lic != nil && *lic.Features.Metrics {
 			p.API.LogInfo("Enabling metrics...")
-			cfg.MetricsSettings.Enable = mmModel.NewBool(true)
+			cfg.MetricsSettings.Enable = mmModel.NewPointer(true)
 			if err2 := p.API.SaveConfig(cfg); err2 != nil {
 				return fmt.Errorf("failed to save config: %w", err2)
 			}
