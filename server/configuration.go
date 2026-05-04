@@ -63,46 +63,46 @@ type configuration struct {
 
 func (c *configuration) SetDefaults() {
 	if c.DBPath == nil {
-		c.DBPath = model.NewString(filepath.Join(PluginName, tsdbDirName))
+		c.DBPath = model.NewPointer(filepath.Join(PluginName, tsdbDirName))
 	}
 	if c.AllowOverlappingCompaction == nil {
-		c.AllowOverlappingCompaction = model.NewBool(true)
+		c.AllowOverlappingCompaction = model.NewPointer(true)
 	}
 	if c.EnableMemorySnapshotOnShutdown == nil {
-		c.EnableMemorySnapshotOnShutdown = model.NewBool(true)
+		c.EnableMemorySnapshotOnShutdown = model.NewPointer(true)
 	}
 	if c.BodySizeLimitBytes == nil {
-		c.BodySizeLimitBytes = model.NewInt64(int64(units.GiB))
+		c.BodySizeLimitBytes = model.NewPointer(int64(units.GiB))
 	}
 	if c.HonorTimestamps == nil {
-		c.HonorTimestamps = model.NewBool(true)
+		c.HonorTimestamps = model.NewPointer(true)
 	}
 	if c.EnableMetadataStorage == nil {
-		c.EnableMetadataStorage = model.NewBool(true)
+		c.EnableMetadataStorage = model.NewPointer(true)
 	}
 	if c.ScrapeIntervalSeconds == nil {
-		c.ScrapeIntervalSeconds = model.NewInt(60)
+		c.ScrapeIntervalSeconds = model.NewPointer(60)
 	}
 	if c.ScrapeTimeoutSeconds == nil {
-		c.ScrapeTimeoutSeconds = model.NewInt(10)
+		c.ScrapeTimeoutSeconds = model.NewPointer(10)
 	}
 	if c.RetentionDurationDays == nil {
-		c.RetentionDurationDays = model.NewInt(15)
+		c.RetentionDurationDays = model.NewPointer(15)
 	}
 	if c.FileStoreSyncPeriodMinutes == nil {
-		c.FileStoreSyncPeriodMinutes = model.NewInt(60)
+		c.FileStoreSyncPeriodMinutes = model.NewPointer(60)
 	}
 	if c.FileStoreCleanupPeriodMinutes == nil {
-		c.FileStoreCleanupPeriodMinutes = model.NewInt(120)
+		c.FileStoreCleanupPeriodMinutes = model.NewPointer(120)
 	}
 	if c.SupportPacketMetricsDays == nil {
-		c.SupportPacketMetricsDays = model.NewInt(1)
+		c.SupportPacketMetricsDays = model.NewPointer(1)
 	}
 	if c.EnableNodeExporterTargets == nil {
-		c.EnableNodeExporterTargets = model.NewBool(true)
+		c.EnableNodeExporterTargets = model.NewPointer(true)
 	}
 	if c.NodeExporterPort == nil {
-		c.NodeExporterPort = model.NewInt(9100)
+		c.NodeExporterPort = model.NewPointer(9100)
 	}
 }
 
