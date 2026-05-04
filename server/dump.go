@@ -19,7 +19,7 @@ type Dump struct {
 	MaxT int64
 }
 
-func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, remoteStorageDir string) (*Dump, error) {
+func (p *Plugin) createDump(ctx context.Context, id string, minT, maxT time.Time, remoteStorageDir string) (*Dump, error) {
 	// get the blocks if there is any block in the remote filestore
 	blocks, err := p.fileBackend.ListDirectory(remoteStorageDir)
 	if err != nil {
@@ -49,8 +49,8 @@ func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, 
 
 		metaMax := time.UnixMilli(meta.MaxTime)
 		metaMin := time.UnixMilli(meta.MinTime)
-		if metaMax.Before(max) && metaMax.After(min) {
-			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", max.String())
+		if metaMax.Before(maxT) && metaMax.After(minT) {
+			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", metaMax.String())
 
 			err = copyFromFileStore(dumpDir, b, p.fileBackend)
 			if err != nil {
@@ -92,8 +92,8 @@ func (p *Plugin) createDump(ctx context.Context, id string, min, max time.Time, 
 
 	// Add plugin specific metadata
 	customMetadata := map[string]any{
-		"min": min.UnixMilli(),
-		"max": max.UnixMilli(),
+		"min": minT.UnixMilli(),
+		"max": maxT.UnixMilli(),
 	}
 
 	_, err = p.client.System.GeneratePacketMetadata(dumpDir, customMetadata)

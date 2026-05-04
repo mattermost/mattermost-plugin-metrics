@@ -178,8 +178,8 @@ func (p *Plugin) OnActivate() error {
 				ScrapeTimeout:              model.Duration(time.Duration(*p.configuration.ScrapeTimeoutSeconds) * time.Second),
 				BodySizeLimit:              units.Base2Bytes(*p.configuration.BodySizeLimitBytes),
 				HonorLabels:                *p.configuration.HonorTimestamps,
-				SampleLimit:                uint(*p.configuration.SampleLimit),
-				NativeHistogramBucketLimit: uint(*p.configuration.BucketLimit),
+				SampleLimit:                p.configuration.SampleLimit,
+				NativeHistogramBucketLimit: p.configuration.BucketLimit,
 			},
 		},
 	}

@@ -9,18 +9,18 @@ import {QueryResult} from './types';
 
 type Props = {
     results: QueryResult[];
-    legends: string[][];  // legends[queryIdx][seriesIdx]
+    legends: string[][]; // legends[queryIdx][seriesIdx]
     unit?: string;
     height?: number;
     startTime?: number; // unix seconds — fixes x-axis to the selected time window
-    endTime?: number;   // unix seconds
+    endTime?: number; // unix seconds
     onTimeRangeSelect?: (start: number, end: number) => void;
 };
 
 type TooltipData = {
-    left: number;   // px from container left
-    top: number;    // px from container top
-    time: number;   // unix seconds
+    left: number; // px from container left
+    top: number; // px from container top
+    time: number; // unix seconds
     entries: Array<{label: string; value: number | null | undefined; color: string}>;
 };
 
@@ -102,7 +102,7 @@ function buildUplotData(results: QueryResult[]): uPlot.AlignedData {
             const col: (number | null)[] = new Array(timestamps.length).fill(null);
             for (const [ts, v] of s.values) {
                 const i = tsIdx.get(ts);
-                if (i !== undefined) {
+                if (i != null) {
                     col[i] = v;
                 }
             }
@@ -122,7 +122,8 @@ function buildSeriesConfig(
     let colorIdx = 0;
     results.forEach((result, ri) => {
         (result.series ?? []).forEach((s, si) => {
-            const label = legends[ri]?.[si] ?? s.metric?.['__name__'] ?? `series ${colorIdx + 1}`;
+            // eslint-disable-next-line no-underscore-dangle
+            const label = legends[ri]?.[si] ?? s.metric?.__name__ ?? `series ${colorIdx + 1}`;
             series.push({
                 label,
                 stroke: SERIES_COLORS[colorIdx % SERIES_COLORS.length],
@@ -155,7 +156,9 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
 
     useEffect(() => {
         if (!containerRef.current || !hasData) {
-            return;
+            return () => {
+                // no plot to clean up
+            };
         }
 
         const data = buildUplotData(results);
@@ -165,9 +168,7 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
             width: containerRef.current.clientWidth || 400,
             height,
             series,
-            scales: startTime && endTime ? {
-                x: {range: [startTime, endTime]},
-            } : undefined,
+            ...(startTime && endTime ? {scales: {x: {range: [startTime, endTime] as [number, number]}}} : {}),
             axes: [
                 {
                     stroke: '#666',
@@ -205,7 +206,7 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
 
                     const time = (u.data[0] as number[])[idx];
                     const entries = u.series.slice(1).map((s, i) => ({
-                        label: s.label ?? '',
+                        label: typeof s.label === 'string' ? s.label : '',
                         value: (u.data[i + 1] as (number | null)[])[idx],
                         color: typeof s.stroke === 'string' ? s.stroke : SERIES_COLORS[i % SERIES_COLORS.length],
                     }));
@@ -232,6 +233,7 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
             },
         };
 
+        // eslint-disable-next-line new-cap
         plotRef.current = new uPlot(opts, data, containerRef.current);
 
         const ro = new ResizeObserver((entries) => {
@@ -283,9 +285,9 @@ const TOOLTIP_OFFSET = 12;
 
 function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string | undefined; containerWidth: number}) {
     const flipLeft = data.left + TOOLTIP_OFFSET + TOOLTIP_WIDTH > containerWidth;
-    const left = flipLeft
-        ? data.left - TOOLTIP_OFFSET
-        : data.left + TOOLTIP_OFFSET;
+    const left = flipLeft ?
+        data.left - TOOLTIP_OFFSET :
+        data.left + TOOLTIP_OFFSET;
     const transform = flipLeft ? 'translate(-100%, -50%)' : 'translateY(-50%)';
 
     return (
@@ -301,7 +303,7 @@ function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string 
                 padding: '8px 10px',
                 fontSize: 12,
                 pointerEvents: 'none',
-                zIndex: 100,
+                zIndex: 9999,
                 whiteSpace: 'nowrap',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                 minWidth: TOOLTIP_WIDTH,
@@ -311,23 +313,31 @@ function Tooltip({data, unit, containerWidth}: {data: TooltipData; unit: string 
                 {formatTimestamp(data.time)}
             </div>
             {[...data.entries].sort((a, b) => {
-                if (a.value == null && b.value == null) { return 0; }
-                if (a.value == null) { return 1; }
-                if (b.value == null) { return -1; }
+                if (a.value == null && b.value == null) {
+                    return 0;
+                }
+                if (a.value == null) {
+                    return 1;
+                }
+                if (b.value == null) {
+                    return -1;
+                }
                 return b.value - a.value;
             }).map((e, i) => (
                 <div
                     key={i} // eslint-disable-line react/no-array-index-key
                     style={{display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2}}
                 >
-                    <span style={{
-                        display: 'inline-block',
-                        width: 10,
-                        height: 10,
-                        borderRadius: 2,
-                        background: e.color,
-                        flexShrink: 0,
-                    }}/>
+                    <span
+                        style={{
+                            display: 'inline-block',
+                            width: 10,
+                            height: 10,
+                            borderRadius: 2,
+                            background: e.color,
+                            flexShrink: 0,
+                        }}
+                    />
                     <span style={{flex: 1, color: '#ccc'}}>{e.label}</span>
                     <span style={{fontWeight: 600, color: '#fff', minWidth: 60, textAlign: 'right'}}>
                         {formatValue(unit, e.value)}

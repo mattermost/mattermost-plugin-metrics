@@ -113,8 +113,8 @@ func (p *Plugin) syncWithRemote(localStorageDir, remoteStorageDir string, retent
 			continue
 		}
 
-		max := time.UnixMilli(meta.MaxTime)
-		if max.After(ret) {
+		maxT := time.UnixMilli(meta.MaxTime)
+		if maxT.After(ret) {
 			blocksToSync = append(blocksToSync, entry.Name())
 		}
 	}
@@ -175,9 +175,9 @@ func (p *Plugin) cleanupRemote(remoteStorageDir string, retentionDays int) error
 			continue
 		}
 
-		max := time.UnixMilli(meta.MaxTime)
-		if max.Before(ret) {
-			p.API.LogInfo("Deleting obsolete block from the filestore", "ulid", meta.ULID, "Max Time", max.String())
+		maxT := time.UnixMilli(meta.MaxTime)
+		if maxT.Before(ret) {
+			p.API.LogInfo("Deleting obsolete block from the filestore", "ulid", meta.ULID, "Max Time", maxT.String())
 			err = p.fileBackend.RemoveDirectory(b)
 			if err != nil {
 				p.API.LogWarn("unable to remove block from filestore", "err", err)

@@ -82,14 +82,14 @@ func (p *Plugin) JobCallback(_ string, job any) {
 	dumpJob.Status = model.JobStatusSuccess
 }
 
-func (p *Plugin) CreateJob(_ context.Context, min, max int64) (*DumpJob, error) {
+func (p *Plugin) CreateJob(_ context.Context, minT, maxT int64) (*DumpJob, error) {
 	jobID := model.NewId()
 	job := &DumpJob{
 		ID:       jobID,
 		Status:   model.JobStatusPending,
 		CreateAt: time.Now().UnixMilli(),
-		MinT:     min,
-		MaxT:     max,
+		MinT:     minT,
+		MaxT:     maxT,
 	}
 
 	_, err := p.scheduler.ScheduleOnce(job.ID, time.Now(), job)

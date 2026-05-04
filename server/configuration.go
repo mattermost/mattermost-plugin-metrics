@@ -35,9 +35,9 @@ type configuration struct {
 	EnableMemorySnapshotOnShutdown *bool
 	BodySizeLimitBytes             *int64
 	// More than this many samples post metric-relabeling will cause the scrape to fail. 0 means no limit.
-	SampleLimit *int
-	// More than this many buckets in a native histogram will cause the scrape to fail.
-	BucketLimit *int
+	SampleLimit uint
+	// More than this many buckets in a native histogram will cause the scrape to fail. 0 means no limit.
+	BucketLimit uint
 	// Indicator whether the scraped timestamps should be respected.
 	HonorTimestamps *bool
 	// Option to enable the experimental in-memory metadata storage and append metadata to the WAL.
@@ -73,12 +73,6 @@ func (c *configuration) SetDefaults() {
 	}
 	if c.BodySizeLimitBytes == nil {
 		c.BodySizeLimitBytes = model.NewInt64(int64(units.GiB))
-	}
-	if c.SampleLimit == nil {
-		c.SampleLimit = model.NewInt(0)
-	}
-	if c.BucketLimit == nil {
-		c.BucketLimit = model.NewInt(0)
 	}
 	if c.HonorTimestamps == nil {
 		c.HonorTimestamps = model.NewBool(true)
@@ -290,7 +284,6 @@ func (p *Plugin) generateTargetGroup(appCfg *model.Config, nodes []*model.Cluste
 				promModel.JobLabel:     "node",
 			})
 		}
-
 	} else {
 		targets = make([]promModel.LabelSet, len(nodes)*2)
 		for _, node := range nodes {

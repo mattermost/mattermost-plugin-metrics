@@ -174,10 +174,11 @@ func compressDirectory(sourceDir, compressedFile string) error {
 			return err
 		}
 
-		data, err := os.Open(file)
+		data, err := os.Open(file) //nolint:gosec // G122: walking plugin-owned dump dir
 		if err != nil {
 			return err
 		}
+		defer data.Close()
 
 		if _, err := io.Copy(tw, data); err != nil {
 			return err
