@@ -1,12 +1,13 @@
 module github.com/mattermost/mattermost-plugin-metrics
 
-go 1.26.0
+go 1.26.2
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/go-kit/log v0.2.1
 	github.com/gorilla/mux v1.8.1
 	github.com/jmoiron/sqlx v1.4.0
+	github.com/mattermost/logr/v2 v2.0.22
 	github.com/mattermost/mattermost/server/public v0.3.1
 	github.com/mattermost/mattermost/server/v8 v8.0.0-20260504011026-d4f147e2dae3
 	github.com/mattermost/squirrel v0.5.0
@@ -69,7 +70,6 @@ require (
 	github.com/mattermost/go-i18n v1.11.1-0.20211013152124-5c415071e404 // indirect
 	github.com/mattermost/gosaml2 v0.10.0 // indirect
 	github.com/mattermost/ldap v0.0.0-20231116144001-0f480c025956 // indirect
-	github.com/mattermost/logr/v2 v2.0.22 // indirect
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
