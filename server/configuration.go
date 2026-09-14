@@ -290,7 +290,6 @@ func (p *Plugin) generateTargetGroup(appCfg *model.Config, nodes []*model.Cluste
 				promModel.JobLabel:     "node",
 			})
 		}
-
 	} else {
 		targets = make([]promModel.LabelSet, len(nodes)*2)
 		for _, node := range nodes {
