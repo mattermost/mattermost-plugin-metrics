@@ -29,7 +29,15 @@ type State = {
     collapsed: Set<string>;
     windowStart: number;
     windowEnd: number;
+    dataStart: number;
+    scrapeIntervalSeconds: number;
 };
+
+// rate() needs two samples in its window, and the query engine never steps finer than a minute.
+function secondsUntilFirstPoint(dataStart: number, scrapeIntervalSeconds: number, step: number, now: number): number {
+    const readyAt = (dataStart || now) + (2 * scrapeIntervalSeconds) + Math.max(step, 60);
+    return readyAt - now;
+}
 
 export default class Dashboard extends React.PureComponent<Record<string, never>, State> {
     private refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -48,6 +56,8 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
         collapsed: new Set(),
         windowStart: 0,
         windowEnd: 0,
+        dataStart: 0,
+        scrapeIntervalSeconds: 0,
     };
 
     componentDidMount() {
@@ -92,11 +102,17 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
 
         this.setState({loading: true, error: '', windowStart: start, windowEnd: end});
         try {
-            const results = await queryBatch({start, end, step: activeRange.step, queries: expressions});
+            const resp = await queryBatch({start, end, step: activeRange.step, queries: expressions});
             if (this.isUnmounted || requestId !== this.latestRequestId) {
                 return;
             }
-            this.setState({results, loading: false, lastUpdated: new Date()});
+            this.setState({
+                results: resp.results,
+                dataStart: resp.data_start,
+                scrapeIntervalSeconds: resp.scrape_interval_seconds,
+                loading: false,
+                lastUpdated: new Date(),
+            });
         } catch (e) {
             if (this.isUnmounted || requestId !== this.latestRequestId) {
                 return;
@@ -147,8 +163,16 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
     };
 
     render() {
-        const {results, loading, error, activeRange, lastUpdated, collapsed, windowStart, windowEnd} = this.state;
+        const {results, loading, error, activeRange, lastUpdated, collapsed, windowStart, windowEnd, dataStart, scrapeIntervalSeconds} = this.state;
         const {index} = buildQueryList();
+
+        let emptyText: string | undefined;
+        if (lastUpdated) {
+            const remaining = secondsUntilFirstPoint(dataStart, scrapeIntervalSeconds, activeRange.step, Math.floor(lastUpdated.getTime() / 1000));
+            if (remaining > 0) {
+                emptyText = `Collecting data, charts appear in about ${Math.ceil(remaining / 60)} min`;
+            }
+        }
 
         // Build per-panel result arrays (indexed against the flat PANELS list)
         const panelResults: QueryResult[][] = PANELS.map(() => []);
@@ -245,6 +269,7 @@ export default class Dashboard extends React.PureComponent<Record<string, never>
                                                     unit={panel.unit}
                                                     startTime={windowStart}
                                                     endTime={windowEnd}
+                                                    emptyText={emptyText}
                                                     onTimeRangeSelect={this.handleChartRangeSelect}
                                                 />
                                             </div>

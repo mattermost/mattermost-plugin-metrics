@@ -14,6 +14,7 @@ type Props = {
     height?: number;
     startTime?: number; // unix seconds — fixes x-axis to the selected time window
     endTime?: number; // unix seconds
+    emptyText?: string;
     onTimeRangeSelect?: (start: number, end: number) => void;
 };
 
@@ -136,7 +137,7 @@ function buildSeriesConfig(
     return series;
 }
 
-export default function UPlotChart({results, legends, unit, height = 160, startTime, endTime, onTimeRangeSelect}: Props) {
+export default function UPlotChart({results, legends, unit, height = 160, startTime, endTime, emptyText, onTimeRangeSelect}: Props) {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const plotRef = useRef<uPlot | null>(null);
@@ -258,7 +259,7 @@ export default function UPlotChart({results, legends, unit, height = 160, startT
             <div
                 style={{height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13}}
             >
-                {errors.length > 0 ? errors[0] : 'No data'}
+                {errors.length > 0 ? errors[0] : (emptyText ?? 'No data')}
             </div>
         );
     }

@@ -7,7 +7,7 @@ import type {Options} from '@mattermost/types/client4';
 import {DateRange} from 'react-day-picker';
 
 import {Job, TSDBStats} from '../types/types';
-import {BatchQueryRequest, QueryResult} from '../dashboard/types';
+import {BatchQueryRequest, BatchQueryResponse} from '../dashboard/types';
 import {manifest} from '@/manifest';
 
 async function pluginFetch<T = void>(path: string, options: Options = {}): Promise<T> {
@@ -64,8 +64,8 @@ export async function downloadJob(id: string) {
     document.body.removeChild(link);
 }
 
-export function queryBatch(req: BatchQueryRequest): Promise<QueryResult[]> {
-    return pluginFetch<QueryResult[]>('/metrics/query_batch', {
+export function queryBatch(req: BatchQueryRequest): Promise<BatchQueryResponse> {
+    return pluginFetch<BatchQueryResponse>('/metrics/query_batch', {
         method: 'post',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(req),

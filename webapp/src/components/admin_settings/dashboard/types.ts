@@ -19,6 +19,12 @@ export type BatchQueryRequest = {
     queries: string[];
 };
 
+export type BatchQueryResponse = {
+    results: QueryResult[];
+    data_start: number; // unix seconds of the oldest queryable sample, 0 if none
+    scrape_interval_seconds: number;
+};
+
 export type QuickRange = {
     label: string;
     seconds: number;

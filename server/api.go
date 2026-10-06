@@ -187,11 +187,6 @@ func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Queries) == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("[]"))
-		return
-	}
 	if len(req.Queries) > 50 {
 		http.Error(w, "too many queries (max 50)", http.StatusBadRequest)
 		return
@@ -205,9 +200,26 @@ func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := make([]QueryResult, len(req.Queries))
+	cfg, err := h.plugin.getConfiguration()
+	if err != nil {
+		h.plugin.API.LogError("error while reading configuration", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	dataStart, err := h.plugin.DataStart()
+	if err != nil {
+		h.plugin.API.LogError("error while reading tsdb start time", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	resp := BatchQueryResponse{
+		Results:               make([]QueryResult, len(req.Queries)),
+		DataStart:             dataStart,
+		ScrapeIntervalSeconds: *cfg.ScrapeIntervalSeconds,
+	}
 	for i, expr := range req.Queries {
-		results[i] = h.plugin.QueryRange(r.Context(), QueryRequest{
+		resp.Results[i] = h.plugin.QueryRange(r.Context(), QueryRequest{
 			Query: expr,
 			Start: req.Start,
 			End:   req.End,
@@ -216,7 +228,7 @@ func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(results); err != nil {
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.plugin.API.LogError("error marshaling batch query results", "err", err)
 	}
 }

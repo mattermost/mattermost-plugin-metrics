@@ -37,6 +37,32 @@ type BatchQueryRequest struct {
 	Queries []string `json:"queries"`
 }
 
+type BatchQueryResponse struct {
+	Results               []QueryResult `json:"results"`
+	DataStart             int64         `json:"data_start"` // unix seconds of the oldest queryable sample, 0 if none
+	ScrapeIntervalSeconds int           `json:"scrape_interval_seconds"`
+}
+
+// DataStart returns the unix time in seconds of the oldest queryable sample, or 0 if there is none yet.
+func (p *Plugin) DataStart() (int64, error) {
+	p.tsdbLock.RLock()
+	db := p.db
+	p.tsdbLock.RUnlock()
+	if db == nil {
+		return 0, nil
+	}
+
+	startMs, err := db.StartTime()
+	if err != nil {
+		return 0, err
+	}
+	// An empty head reports math.MaxInt64 as its min time.
+	if startMs == math.MaxInt64 {
+		return 0, nil
+	}
+	return startMs / 1000, nil
+}
+
 func (p *Plugin) newQueryEngine() *promql.Engine {
 	return promql.NewEngine(promql.EngineOpts{
 		Logger:               p.logger,
