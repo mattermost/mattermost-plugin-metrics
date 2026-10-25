@@ -17,10 +17,6 @@ export GO111MODULE=on
 # for processes spawned from the Makefile
 export GOBIN ?= $(PWD)/bin
 
-# golangci-lint is built with the Go version from go.mod, a prebuilt binary
-# cannot lint code targeting a newer Go version than it was built with.
-GOLANGCI_LINT_VERSION ?= v2.15.0
-
 # You can include assets this directory into the bundle. This can be e.g. used to include profile pictures.
 ASSETS_DIR ?= assets
 
@@ -167,9 +163,13 @@ ifneq ($(HAS_WEBAPP),)
 endif
 
 ifneq ($(HAS_SERVER),)
+	@if ! [ -x "$$(command -v golangci-lint)" ]; then \
+		echo "golangci-lint is not installed. Please see https://github.com/golangci/golangci-lint#install for installation instructions."; \
+		exit 1; \
+	fi; \
+
 	@echo Running golangci-lint
-	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
-	$(GOBIN)/golangci-lint run ./...
+	golangci-lint run ./...
 	$(GO) install github.com/mattermost/mattermost-govet/v2@3f08281c344327ac09364f196b15f9a81c7eff08
 	$(GO) vet -vettool=$(GOBIN)/mattermost-govet -license -license.year=2023 . ./server/... ./build/...
 endif
