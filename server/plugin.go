@@ -63,9 +63,6 @@ type Plugin struct {
 	// queryEngine is the PromQL engine used for dashboard queries
 	queryEngine *promql.Engine
 
-	// remoteBlocks makes the blocks in the file store queryable, it is set along with db.
-	remoteBlocks *remoteBlockStore
-
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
 
@@ -200,28 +197,17 @@ func (p *Plugin) startScraping() error {
 	// initiate local tsdb
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
+	// the local tsdb keeps as much data as the filestore, so that the dashboard can query
+	// all of it from the local tsdb
+	retention := time.Duration(*p.configuration.RetentionDurationDays) * 24 * time.Hour
 	p.db, err = tsdb.Open(*p.configuration.DBPath, p.logger, nil, &tsdb.Options{
-		RetentionDuration:              int64(localRetentionDays / time.Millisecond),
+		RetentionDuration:              retention.Milliseconds(),
 		AllowOverlappingCompaction:     *p.configuration.AllowOverlappingCompaction,
 		EnableMemorySnapshotOnShutdown: *p.configuration.EnableMemorySnapshotOnShutdown,
 	}, nil)
 	if err != nil {
 		return fmt.Errorf("could not open target tsdb: %w", err)
 	}
-
-	remoteBlocks, err := newRemoteBlockStore(
-		p.fileBackend,
-		filepath.Join(pluginDataDir, PluginName, tsdbDirName),
-		remoteBlockCacheDir(*p.configuration.DBPath),
-		remoteBlockCacheMaxBytes,
-		p.logger,
-	)
-	if err != nil {
-		p.db.Close()
-		p.db = nil
-		return err
-	}
-	p.remoteBlocks = remoteBlocks
 	p.queryEngine = p.newQueryEngine()
 
 	manager := scrape.NewManager(nil, p.logger, p.db)
@@ -320,7 +306,18 @@ func (p *Plugin) startScraping() error {
 	p.waitGroup.Add(1)
 	go func() {
 		defer p.waitGroup.Done()
-		p.syncFileStore(remoteBlocks)
+		p.syncFileStore()
+	}()
+
+	// copy the blocks of the previous scraping nodes, the tsdb picks them up on its next reload
+	dbDir := p.db.Dir()
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
+		err2 := p.restoreFromRemote(dbDir, filepath.Join(pluginDataDir, PluginName, tsdbDirName), retention)
+		if err2 != nil {
+			p.API.LogError("could not restore blocks from the filestore", "err", err2)
+		}
 	}()
 
 	if p.isHA() {
@@ -350,10 +347,6 @@ func (p *Plugin) OnDeactivate() error {
 		err = p.db.Close()
 		p.db = nil
 		p.queryEngine = nil
-	}
-	if p.remoteBlocks != nil {
-		p.remoteBlocks.close()
-		p.remoteBlocks = nil
 	}
 
 	// the plugin mutex unlock panics if the lock was not acquired

@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/storage"
-	"github.com/prometheus/prometheus/tsdb"
 )
 
 type QueryRequest struct {
@@ -45,12 +43,10 @@ type BatchQueryResponse struct {
 	ScrapeIntervalSeconds int           `json:"scrape_interval_seconds"`
 }
 
-// DataStart returns the unix time in seconds of the oldest queryable sample, including the
-// blocks in the file store, or 0 if there is none yet.
+// DataStart returns the unix time in seconds of the oldest queryable sample, or 0 if there is none yet.
 func (p *Plugin) DataStart() (int64, error) {
 	p.tsdbLock.RLock()
 	db := p.db
-	remoteBlocks := p.remoteBlocks
 	p.tsdbLock.RUnlock()
 	if db == nil {
 		return 0, nil
@@ -59,11 +55,6 @@ func (p *Plugin) DataStart() (int64, error) {
 	startMs, err := db.StartTime()
 	if err != nil {
 		return 0, err
-	}
-	if remoteBlocks != nil {
-		if remoteStartMs, ok := remoteBlocks.minTime(); ok {
-			startMs = min(startMs, remoteStartMs)
-		}
 	}
 	// An empty head reports math.MaxInt64 as its min time.
 	if startMs == math.MaxInt64 {
@@ -90,7 +81,6 @@ func (p *Plugin) QueryRange(ctx context.Context, req QueryRequest) QueryResult {
 	defer p.tsdbLock.RUnlock()
 	db := p.db
 	engine := p.queryEngine
-	remoteBlocks := p.remoteBlocks
 
 	if engine == nil || db == nil {
 		return QueryResult{Query: req.Query, Error: "query engine not available"}
@@ -105,14 +95,7 @@ func (p *Plugin) QueryRange(ctx context.Context, req QueryRequest) QueryResult {
 		step = minStep
 	}
 
-	var queryable storage.Queryable = db
-	if remoteBlocks != nil {
-		queryable = storage.QueryableFunc(func(mint, maxt int64) (storage.Querier, error) {
-			return remoteBlocks.querier(db, mint, maxt)
-		})
-	}
-
-	q, err := engine.NewRangeQuery(ctx, queryable, nil, req.Query, start, end, step)
+	q, err := engine.NewRangeQuery(ctx, db, nil, req.Query, start, end, step)
 	if err != nil {
 		return QueryResult{Query: req.Query, Error: fmt.Sprintf("query error: %s", err.Error())}
 	}
@@ -172,11 +155,6 @@ func (p *Plugin) runQueryBatch(ctx context.Context, req BatchQueryRequest) (Batc
 		return BatchQueryResponse{}, fmt.Errorf("could not read tsdb start time: %w", err)
 	}
 
-	// download the file store blocks of the range before running the queries, so that a
-	// batch waits for them at most once
-	release := p.fetchRemoteBlocks(ctx, req)
-	defer release()
-
 	resp := BatchQueryResponse{
 		Results:               make([]QueryResult, len(req.Queries)),
 		DataStart:             dataStart,
@@ -192,32 +170,4 @@ func (p *Plugin) runQueryBatch(ctx context.Context, req BatchQueryRequest) (Batc
 	}
 
 	return resp, nil
-}
-
-// fetchRemoteBlocks downloads the file store blocks that the batch needs and keeps them in the
-// cache until the returned function is called.
-func (p *Plugin) fetchRemoteBlocks(ctx context.Context, req BatchQueryRequest) func() {
-	p.tsdbLock.RLock()
-	db := p.db
-	remoteBlocks := p.remoteBlocks
-	var local []tsdb.BlockMeta
-	if db != nil {
-		local = localBlockMetas(db)
-	}
-	p.tsdbLock.RUnlock()
-	if db == nil || remoteBlocks == nil {
-		return func() {}
-	}
-
-	mint := time.Unix(req.Start, 0).Add(-remoteBlockFetchMargin).UnixMilli()
-	maxt := time.Unix(req.End, 0).UnixMilli()
-	ids := remoteBlocks.selectBlocks(mint, maxt, local)
-	if len(ids) == 0 {
-		return func() {}
-	}
-
-	fetchCtx, cancel := context.WithTimeout(ctx, remoteBlockFetchTimeout)
-	defer cancel()
-	blocks := remoteBlocks.fetch(fetchCtx, ids)
-	return func() { remoteBlocks.release(blocks) }
 }
