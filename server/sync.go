@@ -11,11 +11,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/oklog/ulid"
 	"github.com/prometheus/prometheus/tsdb"
-	"golang.org/x/exp/slices"
 )
 
 type WriterFunc func(io.Reader, string) (int64, error)

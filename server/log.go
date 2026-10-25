@@ -5,8 +5,7 @@ package main
 
 import (
 	"fmt"
-
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 type Logger interface {
@@ -60,7 +59,7 @@ func (m *metricsLogger) Log(items ...any) error {
 	// we get the message and then remove the key value pair from the items slice
 	// then the removed items will still be added to the list
 	msg := items[msgIndex+1]
-	kvps := slices.Delete[[]any](items, msgIndex, msgIndex+2)
+	kvps := slices.Delete(items, msgIndex, msgIndex+2)
 	logFn := m.api.LogInfo
 
 	// once we remove msg kv, indexes are spoiled, need to check level index again
@@ -75,7 +74,7 @@ func (m *metricsLogger) Log(items ...any) error {
 				logFn = m.api.LogError
 			}
 			// finally remove the "level" kv from the slice
-			kvps = slices.Delete[[]any](kvps, i, i+2)
+			kvps = slices.Delete(kvps, i, i+2)
 			break
 		}
 	}
