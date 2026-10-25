@@ -24,9 +24,17 @@ type ReaderFunc func(string) ([]byte, error)
 // syncFileStore does two periodic jobs and listens closeChan to exit from its loop.
 // 1. Synchronizes the local tsdb blocks with the remote filestore (mattermost-server)
 // 2. Periodically deletes the obsolete blocks from the remote filestore
-func (p *Plugin) syncFileStore() {
+// After each job, it refreshes the index of the blocks that the dashboard queries read from the filestore.
+func (p *Plugin) syncFileStore(remoteBlocks *remoteBlockStore) {
 	localStorageDir := p.db.Dir()
 	remoteStorageDir := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
+
+	refreshRemoteBlocks := func() {
+		if err := remoteBlocks.refresh(); err != nil {
+			p.API.LogWarn("could not refresh the filestore block index", "err", err)
+		}
+	}
+	refreshRemoteBlocks()
 
 	tickFileStoreSync := time.NewTicker(time.Duration(*p.configuration.FileStoreSyncPeriodMinutes) * time.Minute)
 	tickFileStoreCleanUp := time.NewTicker(time.Duration(*p.configuration.FileStoreCleanupPeriodMinutes) * time.Minute)
@@ -51,6 +59,7 @@ loop:
 				p.API.LogError("could not sync with remote store", "err", err)
 				break loop
 			}
+			refreshRemoteBlocks()
 		case <-tickFileStoreCleanUp.C:
 			p.API.LogDebug("Cleaning up the filestore...")
 			err := p.cleanupRemote(remoteStorageDir, *p.configuration.RetentionDurationDays)
@@ -58,6 +67,7 @@ loop:
 				p.API.LogError("unable cleanup remote store, skipping cleanup", "err", err)
 				continue
 			}
+			refreshRemoteBlocks()
 		case <-p.closeChan:
 			p.API.LogDebug("Filestore sync job stopped")
 			return

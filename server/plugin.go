@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -61,6 +62,9 @@ type Plugin struct {
 
 	// queryEngine is the PromQL engine used for dashboard queries
 	queryEngine *promql.Engine
+
+	// remoteBlocks makes the blocks in the file store queryable, it is set along with db.
+	remoteBlocks *remoteBlockStore
 
 	// filestore is being used long storage of the immutable blocks
 	fileBackend filestore.FileBackend
@@ -204,6 +208,20 @@ func (p *Plugin) startScraping() error {
 	if err != nil {
 		return fmt.Errorf("could not open target tsdb: %w", err)
 	}
+
+	remoteBlocks, err := newRemoteBlockStore(
+		p.fileBackend,
+		filepath.Join(pluginDataDir, PluginName, tsdbDirName),
+		remoteBlockCacheDir(*p.configuration.DBPath),
+		remoteBlockCacheMaxBytes,
+		p.logger,
+	)
+	if err != nil {
+		p.db.Close()
+		p.db = nil
+		return err
+	}
+	p.remoteBlocks = remoteBlocks
 	p.queryEngine = p.newQueryEngine()
 
 	manager := scrape.NewManager(nil, p.logger, p.db)
@@ -302,7 +320,7 @@ func (p *Plugin) startScraping() error {
 	p.waitGroup.Add(1)
 	go func() {
 		defer p.waitGroup.Done()
-		p.syncFileStore()
+		p.syncFileStore(remoteBlocks)
 	}()
 
 	if p.isHA() {
@@ -332,6 +350,10 @@ func (p *Plugin) OnDeactivate() error {
 		err = p.db.Close()
 		p.db = nil
 		p.queryEngine = nil
+	}
+	if p.remoteBlocks != nil {
+		p.remoteBlocks.close()
+		p.remoteBlocks = nil
 	}
 
 	// the plugin mutex unlock panics if the lock was not acquired
