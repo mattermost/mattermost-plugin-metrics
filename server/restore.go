@@ -6,6 +6,7 @@ package main
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,7 +16,6 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/tsdb"
-	"github.com/prometheus/prometheus/tsdb/chunkenc"
 	"github.com/prometheus/prometheus/tsdb/chunks"
 	"github.com/prometheus/prometheus/tsdb/index"
 )
@@ -113,12 +113,13 @@ func blocksToRestore(local, remote []tsdb.BlockMeta, minT int64) []tsdb.BlockMet
 		local   bool
 	}
 	newCandidate := func(m tsdb.BlockMeta, isLocal bool) candidate {
-		c := candidate{meta: m, sources: map[ulid.ULID]struct{}{m.ULID: {}}, local: isLocal}
-		if len(m.Compaction.Sources) > 0 {
-			c.sources = make(map[ulid.ULID]struct{}, len(m.Compaction.Sources))
-			for _, src := range m.Compaction.Sources {
-				c.sources[src] = struct{}{}
-			}
+		srcs := m.Compaction.Sources
+		if len(srcs) == 0 {
+			srcs = []ulid.ULID{m.ULID}
+		}
+		c := candidate{meta: m, sources: make(map[ulid.ULID]struct{}, len(srcs)), local: isLocal}
+		for _, src := range srcs {
+			c.sources[src] = struct{}{}
 		}
 		return c
 	}
@@ -151,14 +152,7 @@ func blocksToRestore(local, remote []tsdb.BlockMeta, minT int64) []tsdb.BlockMet
 		if b.local || b.meta.MaxTime < minT {
 			continue
 		}
-		covered := false
-		for _, c := range all {
-			if (c.local || c.meta.ULID != b.meta.ULID) && covers(c, b) {
-				covered = true
-				break
-			}
-		}
-		if !covered {
+		if !slices.ContainsFunc(all, func(c candidate) bool { return covers(c, b) }) {
 			selected = append(selected, b.meta)
 		}
 	}
@@ -183,30 +177,24 @@ func (p *Plugin) restoreBlock(localDir, remoteDir string, id ulid.ULID) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := copyFromFileStore(tmp, filepath.Join(remoteDir, id.String()), remoteDir, p.fileBackend); err != nil {
+	src := filepath.Join(remoteDir, id.String())
+	if err := copyFromFileStore(tmp, src, src, p.fileBackend); err != nil {
 		return err
 	}
 
-	dir := filepath.Join(tmp, id.String())
-	block, err := tsdb.OpenBlock(p.logger, dir, nil)
+	block, err := tsdb.OpenBlock(p.logger, tmp, nil)
 	if err != nil {
 		return fmt.Errorf("could not open block: %w", err)
 	}
-	err = verifyBlock(block)
-	if closeErr := block.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
+	if err = errors.Join(verifyBlock(block), block.Close()); err != nil {
 		return fmt.Errorf("could not verify block: %w", err)
 	}
-	if block.Meta().ULID != id {
-		return fmt.Errorf("unexpected block id %s", block.Meta().ULID)
-	}
 
-	return os.Rename(dir, filepath.Join(localDir, id.String()))
+	return os.Rename(tmp, filepath.Join(localDir, id.String()))
 }
 
-// verifyBlock reads every sample of the block and checks their count against the block meta.
+// verifyBlock reads every chunk of the block, which checks their checksums, and compares the
+// sample count with the block meta.
 func verifyBlock(block *tsdb.Block) error {
 	ir, err := block.Index()
 	if err != nil {
@@ -228,7 +216,6 @@ func verifyBlock(block *tsdb.Block) error {
 	var (
 		builder labels.ScratchBuilder
 		chks    []chunks.Meta
-		it      chunkenc.Iterator
 		samples uint64
 	)
 	for postings.Next() {
@@ -240,13 +227,7 @@ func verifyBlock(block *tsdb.Block) error {
 			if chkErr != nil {
 				return chkErr
 			}
-			it = chk.Iterator(it)
-			for it.Next() != chunkenc.ValNone {
-				samples++
-			}
-			if it.Err() != nil {
-				return it.Err()
-			}
+			samples += uint64(chk.NumSamples()) //nolint:gosec // G115: a sample count is never negative
 		}
 	}
 	if err = postings.Err(); err != nil {

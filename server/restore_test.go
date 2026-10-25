@@ -164,11 +164,7 @@ func countPerHour(t *testing.T, p *Plugin, start, end int64) (map[string][]float
 }
 
 func hourlyCounts(hours int) []float64 {
-	counts := make([]float64, hours)
-	for i := range counts {
-		counts[i] = 60
-	}
-	return counts
+	return slices.Repeat([]float64{60}, hours)
 }
 
 func testBase() int64 {
@@ -178,9 +174,11 @@ func testBase() int64 {
 func TestBlocksToRestore(t *testing.T) {
 	base := testBase()
 	hour := time.Hour.Milliseconds()
+	// ids are ordered by their timestamp, so a counter keeps them in creation order
+	seq := ulid.Now()
 	newMeta := func(mint, maxt int64, sources ...ulid.ULID) tsdb.BlockMeta {
-		id := ulid.MustNew(ulid.Now(), rand.Reader)
-		time.Sleep(time.Millisecond) // keep the ids ordered
+		seq++
+		id := ulid.MustNew(seq, rand.Reader)
 		if len(sources) == 0 {
 			sources = []ulid.ULID{id}
 		}
@@ -305,9 +303,7 @@ func TestRestoreFromRemoteFallsBackToSources(t *testing.T) {
 	require.NoError(t, os.MkdirAll(localDir, 0750))
 	require.NoError(t, p.restoreFromRemote(localDir, remoteTestDir, testRetention))
 
-	ids := localBlockIDs(t, localDir)
-	slices.SortFunc(ids, func(a, b ulid.ULID) int { return a.Compare(b) })
-	require.Equal(t, []ulid.ULID{blockID(first), blockID(second)}, ids)
+	require.ElementsMatch(t, []ulid.ULID{blockID(first), blockID(second)}, localBlockIDs(t, localDir))
 
 	openRestoredTSDB(t, p, localDir)
 	counts, _ := countPerHour(t, p, base, base+4*hour)

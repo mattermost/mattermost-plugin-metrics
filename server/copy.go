@@ -97,6 +97,7 @@ func copyFromFileStore(dst, src, root string, b filestore.FileBackend) error {
 		if err != nil {
 			return err
 		}
+		defer reader.Close()
 
 		fileDest := filepath.Join(dst, strings.TrimPrefix(src, root))
 
