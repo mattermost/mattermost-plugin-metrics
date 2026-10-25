@@ -314,9 +314,18 @@ func (p *Plugin) startScraping() error {
 	p.waitGroup.Add(1)
 	go func() {
 		defer p.waitGroup.Done()
-		err2 := p.restoreFromRemote(dbDir, filepath.Join(pluginDataDir, PluginName, tsdbDirName), retention)
-		if err2 != nil {
-			p.API.LogError("could not restore blocks from the filestore", "err", err2)
+		for {
+			err2 := p.restoreFromRemote(dbDir, filepath.Join(pluginDataDir, PluginName, tsdbDirName), retention)
+			if err2 == nil {
+				return
+			}
+			// e.g. the filestore is unavailable, try again so the history is not missing until the next restart
+			p.API.LogError("could not restore blocks from the filestore, retrying", "err", err2)
+			select {
+			case <-time.After(scraperRetryInterval):
+			case <-p.closeChan:
+				return
+			}
 		}
 	}()
 

@@ -44,6 +44,9 @@ func (p *Plugin) restoreFromRemote(localDir, remoteDir string, retention time.Du
 	}
 	var remote []tsdb.BlockMeta
 	for _, dir := range dirs {
+		if p.isClosing() {
+			return nil
+		}
 		id, parseErr := ulid.ParseStrict(filepath.Base(dir))
 		if parseErr != nil || present[id] {
 			continue
@@ -69,13 +72,11 @@ func (p *Plugin) restoreFromRemote(localDir, remoteDir string, retention time.Du
 		}
 
 		for _, m := range todo {
-			select {
-			case <-p.closeChan:
+			if p.isClosing() {
 				return nil
-			default:
 			}
 
-			if err := restoreBlock(localDir, remoteDir, m.ULID, p); err != nil {
+			if err := p.restoreBlock(localDir, remoteDir, m.ULID); err != nil {
 				// the blocks this one covers are restored instead in the next round
 				p.API.LogWarn("could not restore block from the filestore", "block", m.ULID.String(), "err", err)
 				remote = slices.DeleteFunc(remote, func(r tsdb.BlockMeta) bool { return r.ULID == m.ULID })
@@ -85,6 +86,16 @@ func (p *Plugin) restoreFromRemote(localDir, remoteDir string, retention time.Du
 				"min_time", time.UnixMilli(m.MinTime).String(), "max_time", time.UnixMilli(m.MaxTime).String())
 			local = append(local, m)
 		}
+	}
+}
+
+// isClosing reports whether the plugin is being deactivated.
+func (p *Plugin) isClosing() bool {
+	select {
+	case <-p.closeChan:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -165,14 +176,14 @@ func blocksToRestore(local, remote []tsdb.BlockMeta, minT int64) []tsdb.BlockMet
 // restoreBlock downloads the block next to the tsdb blocks, verifies it and moves it into place.
 // A corrupt block in the tsdb directory would fail every reload of the tsdb, so the block is
 // only moved once it was read completely.
-func restoreBlock(localDir, remoteDir string, id ulid.ULID, p *Plugin) error {
+func (p *Plugin) restoreBlock(localDir, remoteDir string, id ulid.ULID) error {
 	tmp := filepath.Join(localDir, id.String()+tmpForCreationSuffix)
 	if err := os.RemoveAll(tmp); err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := copyFromFileStore(tmp, filepath.Join(remoteDir, id.String()), p.fileBackend); err != nil {
+	if err := copyFromFileStore(tmp, filepath.Join(remoteDir, id.String()), remoteDir, p.fileBackend); err != nil {
 		return err
 	}
 
