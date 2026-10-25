@@ -125,5 +125,8 @@
       "<rootDir>/tests/setup.tsx"
     ],
     "testURL": "http://localhost:8065"
+  },
+  "overrides": {
+    "babel-preset-current-node-syntax": "1.0.1"
   }
 }

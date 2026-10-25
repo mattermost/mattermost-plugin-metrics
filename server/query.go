@@ -76,10 +76,11 @@ func (p *Plugin) newQueryEngine() *promql.Engine {
 }
 
 func (p *Plugin) QueryRange(ctx context.Context, req QueryRequest) QueryResult {
+	// hold the lock for the whole query so that the tsdb is not closed under it
 	p.tsdbLock.RLock()
+	defer p.tsdbLock.RUnlock()
 	db := p.db
 	engine := p.queryEngine
-	p.tsdbLock.RUnlock()
 
 	if engine == nil || db == nil {
 		return QueryResult{Query: req.Query, Error: "query engine not available"}
@@ -127,4 +128,46 @@ func (p *Plugin) QueryRange(ctx context.Context, req QueryRequest) QueryResult {
 	}
 
 	return QueryResult{Query: req.Query, Series: series}
+}
+
+// QueryBatch runs the queries against the local TSDB. In a cluster, only the scraping node
+// has a TSDB, so the other nodes forward the queries to it.
+func (p *Plugin) QueryBatch(ctx context.Context, req BatchQueryRequest) (BatchQueryResponse, error) {
+	if p.isHA() && !p.hasLocalTSDB() {
+		return p.forwardQueryBatch(ctx, req)
+	}
+	return p.runQueryBatch(ctx, req)
+}
+
+func (p *Plugin) hasLocalTSDB() bool {
+	p.tsdbLock.RLock()
+	defer p.tsdbLock.RUnlock()
+	return p.db != nil
+}
+
+func (p *Plugin) runQueryBatch(ctx context.Context, req BatchQueryRequest) (BatchQueryResponse, error) {
+	cfg, err := p.getConfiguration()
+	if err != nil {
+		return BatchQueryResponse{}, fmt.Errorf("could not read configuration: %w", err)
+	}
+	dataStart, err := p.DataStart()
+	if err != nil {
+		return BatchQueryResponse{}, fmt.Errorf("could not read tsdb start time: %w", err)
+	}
+
+	resp := BatchQueryResponse{
+		Results:               make([]QueryResult, len(req.Queries)),
+		DataStart:             dataStart,
+		ScrapeIntervalSeconds: *cfg.ScrapeIntervalSeconds,
+	}
+	for i, expr := range req.Queries {
+		resp.Results[i] = p.QueryRange(ctx, QueryRequest{
+			Query: expr,
+			Start: req.Start,
+			End:   req.End,
+			Step:  req.Step,
+		})
+	}
+
+	return resp, nil
 }
