@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -45,6 +44,13 @@ type Plugin struct {
 	// singletonLock using mutually exclusive lock to run a single instance of the plugin
 	singletonLock         *cluster.Mutex
 	singletonLockAcquired bool
+
+	// nodeID is the cluster id of this node, used to route forwarded queries back to it.
+	nodeID string
+
+	// pendingQueries holds the forwarded queries waiting for a response from the scraping node.
+	pendingQueries     map[string]chan clusterQueryResponse
+	pendingQueriesLock sync.Mutex
 
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
@@ -97,35 +103,83 @@ func (p *Plugin) OnActivate() error {
 
 	p.closeChan = make(chan bool)
 	p.waitGroup = sync.WaitGroup{}
+	p.pendingQueries = make(map[string]chan clusterQueryResponse)
 
 	p.scheduler = cluster.GetJobOnceScheduler(p.API)
 	p.scheduler.SetCallback(p.JobCallback)
 	p.scheduler.Start()
 
+	if !p.isHA() {
+		return p.startScraping()
+	}
+
+	status, appErr := p.API.GetPluginStatus(root.Manifest.Id)
+	if appErr != nil {
+		return fmt.Errorf("could not get plugin status: %w", appErr)
+	}
+	p.nodeID = status.ClusterId
+
 	// we are using a mutually exclusive lock to run a single instance of this plugin
 	// we don't really need to collect metrics twice: although TSDB will take care
 	// of overlapped blocks, it will increase the disk writes to the remote or local
 	// disk.
-	if p.isHA() {
-		var err2 error
-		p.singletonLock, err2 = cluster.NewMutex(p.API, root.Manifest.Id)
-		if err2 != nil {
-			return err2
-		}
-
-		// the constant '20' is determined by healthcheck of the plugin which is 30 seconds.
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		err = p.singletonLock.LockWithContext(ctx)
-		if err != nil && errors.Is(err, context.DeadlineExceeded) {
-			p.API.LogDebug("Another instance of the plugin is running in another node with scraping mode. Skipping this one.")
-			return nil
-		} else if err != nil {
-			return err
-		}
-		p.singletonLockAcquired = true
+	p.singletonLock, err = cluster.NewMutex(p.API, root.Manifest.Id)
+	if err != nil {
+		return err
 	}
 
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
+		p.runScraperElection(p.startScraping)
+	}()
+
+	return nil
+}
+
+// runScraperElection blocks until this node acquires the singleton lock and then calls start.
+// Nodes keep waiting for the lock instead of giving up, so that another node takes over
+// scraping when the scraping node leaves the cluster. It returns when the plugin is deactivated.
+func (p *Plugin) runScraperElection(start func() error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-p.closeChan:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	for {
+		p.API.LogDebug("Waiting for the lock to become the scraping node")
+		// LockWithContext only fails when the context is canceled
+		if err := p.singletonLock.LockWithContext(ctx); err != nil {
+			return
+		}
+		p.singletonLockAcquired = true
+
+		p.API.LogInfo("Acquired the lock, this node is collecting the metrics")
+		err := start()
+		if err == nil {
+			return
+		}
+
+		// let another node try while we wait to retry
+		p.API.LogError("Could not start scraping, releasing the lock", "err", err.Error())
+		p.singletonLock.Unlock()
+		p.singletonLockAcquired = false
+
+		select {
+		case <-time.After(scraperRetryInterval):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// startScraping opens the local TSDB and starts scraping the metrics targets.
+func (p *Plugin) startScraping() error {
 	// The metrics plugin is dependent on the metrics endpoint being expoesed, so we need to ensure it is enabled.
 	if cfg := p.API.GetUnsanitizedConfig(); cfg.MetricsSettings.Enable == nil || !*cfg.MetricsSettings.Enable {
 		if lic := p.API.GetLicense(); lic != nil && *lic.Features.Metrics {
@@ -137,8 +191,7 @@ func (p *Plugin) OnActivate() error {
 		}
 	}
 
-	p.closeChan = make(chan bool)
-	p.waitGroup = sync.WaitGroup{}
+	var err error
 
 	// initiate local tsdb
 	p.tsdbLock.Lock()
@@ -252,30 +305,44 @@ func (p *Plugin) OnActivate() error {
 		p.syncFileStore()
 	}()
 
+	if p.isHA() {
+		// let the other nodes know where to forward the dashboard queries
+		p.waitGroup.Add(1)
+		go func() {
+			defer p.waitGroup.Done()
+			p.advertiseScraper()
+		}()
+	}
+
 	return nil
 }
 
 func (p *Plugin) OnDeactivate() error {
-	// the plugin mutex unlock panics if the lock was not acquired
-	// so we need to check whether we actually acquired the lock
-	if p.isHA() && p.singletonLockAcquired {
-		defer p.client.Store.Close()
-		defer p.singletonLock.Unlock()
-	}
-
-	p.tsdbLock.Lock()
-	defer p.tsdbLock.Unlock()
-
+	// stop the background jobs first, they may be waiting on the tsdb lock
 	close(p.closeChan)
 	p.waitGroup.Wait()
 
 	p.API.LogInfo("Scrape manager stopped")
 
+	p.tsdbLock.Lock()
+	defer p.tsdbLock.Unlock()
+
+	var err error
 	if p.db != nil {
-		return p.db.Close()
+		err = p.db.Close()
+		p.db = nil
+		p.queryEngine = nil
 	}
 
-	return nil
+	// the plugin mutex unlock panics if the lock was not acquired
+	// so we need to check whether we actually acquired the lock
+	if p.singletonLockAcquired {
+		p.client.Store.Close()
+		p.singletonLock.Unlock()
+		p.singletonLockAcquired = false
+	}
+
+	return err
 }
 
 // ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.

@@ -15,3 +15,19 @@ const (
 	MaxRequestSize     = 5 * 1024 * 1024 // 5MB
 	localRetentionDays = 3 * 24 * time.Hour
 )
+
+const (
+	// scraperRetryInterval is how long a node waits before trying to become the scraping node again
+	// after it failed to start scraping.
+	scraperRetryInterval = time.Minute
+
+	// KVStoreScraperNodeKey holds the cluster id of the node that is scraping the metrics.
+	KVStoreScraperNodeKey = PluginName + "_scraper_node"
+	// scraperNodeTTL is the expiry of KVStoreScraperNodeKey, the scraping node refreshes it before then.
+	scraperNodeTTL = time.Minute
+
+	// forwardedQueryTimeout bounds how long a node waits for the scraping node to answer a query.
+	forwardedQueryTimeout = 60 * time.Second
+	// MaxForwardedResponseSize caps the decompressed size of a forwarded query response.
+	MaxForwardedResponseSize = 256 * 1024 * 1024 // 256MB
+)

@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"sort"
@@ -200,31 +201,14 @@ func (h *handler) queryBatchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, err := h.plugin.getConfiguration()
-	if err != nil {
-		h.plugin.API.LogError("error while reading configuration", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	resp, err := h.plugin.QueryBatch(r.Context(), req)
+	if errors.Is(err, errScraperUnavailable) {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
-	}
-	dataStart, err := h.plugin.DataStart()
-	if err != nil {
-		h.plugin.API.LogError("error while reading tsdb start time", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+	} else if err != nil {
+		h.plugin.API.LogError("error while running the queries", "err", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	resp := BatchQueryResponse{
-		Results:               make([]QueryResult, len(req.Queries)),
-		DataStart:             dataStart,
-		ScrapeIntervalSeconds: *cfg.ScrapeIntervalSeconds,
-	}
-	for i, expr := range req.Queries {
-		resp.Results[i] = h.plugin.QueryRange(r.Context(), QueryRequest{
-			Query: expr,
-			Start: req.Start,
-			End:   req.End,
-			Step:  req.Step,
-		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

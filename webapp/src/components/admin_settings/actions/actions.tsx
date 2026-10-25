@@ -14,7 +14,8 @@ async function pluginFetch<T = void>(path: string, options: Options = {}): Promi
     const url = `${Client4.getUrl()}/plugins/${manifest.id}${path}`;
     const res = await fetch(url, Client4.getOptions(options));
     if (!res.ok) {
-        throw new Error(`${res.status} ${res.statusText}`);
+        const message = (await res.text()).trim();
+        throw new Error(message ? `${res.status} ${res.statusText}: ${message}` : `${res.status} ${res.statusText}`);
     }
     if (res.status === 204) {
         return null as T;
