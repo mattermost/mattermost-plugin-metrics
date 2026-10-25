@@ -71,7 +71,9 @@ func copyFile(srcFile, dstFile string, wr WriterFunc) error {
 	return nil
 }
 
-func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
+// copyFromFileStore copies the file or directory src from the filestore to dst, the files are
+// placed at their path relative to root.
+func copyFromFileStore(dst, src, root string, b filestore.FileBackend) error {
 	if _, err := b.FileExists(src); err != nil {
 		return err
 	}
@@ -95,9 +97,9 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 		if err != nil {
 			return err
 		}
+		defer reader.Close()
 
-		trim := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-		fileDest := filepath.Join(dst, strings.TrimPrefix(src, trim))
+		fileDest := filepath.Join(dst, strings.TrimPrefix(src, root))
 
 		// create parent if there is no directory
 		err = os.MkdirAll(filepath.Dir(fileDest), 0740)
@@ -120,8 +122,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 
 	// it means this is a directory
 	if len(entries) > 0 {
-		trim := filepath.Join(pluginDataDir, PluginName, tsdbDirName)
-		fileDest := filepath.Join(dst, strings.TrimPrefix(src, trim))
+		fileDest := filepath.Join(dst, strings.TrimPrefix(src, root))
 
 		err := os.MkdirAll(fileDest, 0740)
 		if err != nil {
@@ -130,7 +131,7 @@ func copyFromFileStore(dst, src string, b filestore.FileBackend) error {
 	}
 
 	for _, entry := range entries {
-		err := copyFromFileStore(dst, entry, b)
+		err := copyFromFileStore(dst, entry, root, b)
 		if err != nil {
 			return err
 		}

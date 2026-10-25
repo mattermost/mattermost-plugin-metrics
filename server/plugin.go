@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -196,8 +197,11 @@ func (p *Plugin) startScraping() error {
 	// initiate local tsdb
 	p.tsdbLock.Lock()
 	defer p.tsdbLock.Unlock()
+	// the local tsdb keeps as much data as the filestore, so that the dashboard can query
+	// all of it from the local tsdb
+	retention := time.Duration(*p.configuration.RetentionDurationDays) * 24 * time.Hour
 	p.db, err = tsdb.Open(*p.configuration.DBPath, p.logger, nil, &tsdb.Options{
-		RetentionDuration:              int64(localRetentionDays / time.Millisecond),
+		RetentionDuration:              retention.Milliseconds(),
 		AllowOverlappingCompaction:     *p.configuration.AllowOverlappingCompaction,
 		EnableMemorySnapshotOnShutdown: *p.configuration.EnableMemorySnapshotOnShutdown,
 	}, nil)
@@ -303,6 +307,26 @@ func (p *Plugin) startScraping() error {
 	go func() {
 		defer p.waitGroup.Done()
 		p.syncFileStore()
+	}()
+
+	// copy the blocks of the previous scraping nodes, the tsdb picks them up on its next reload
+	dbDir := p.db.Dir()
+	p.waitGroup.Add(1)
+	go func() {
+		defer p.waitGroup.Done()
+		for {
+			err2 := p.restoreFromRemote(dbDir, filepath.Join(pluginDataDir, PluginName, tsdbDirName), retention)
+			if err2 == nil {
+				return
+			}
+			// e.g. the filestore is unavailable, try again so the history is not missing until the next restart
+			p.API.LogError("could not restore blocks from the filestore, retrying", "err", err2)
+			select {
+			case <-time.After(scraperRetryInterval):
+			case <-p.closeChan:
+				return
+			}
+		}
 	}()
 
 	if p.isHA() {

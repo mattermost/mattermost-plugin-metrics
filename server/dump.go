@@ -52,7 +52,7 @@ func (p *Plugin) createDump(ctx context.Context, id string, minT, maxT time.Time
 		if metaMax.Before(maxT) && metaMax.After(minT) {
 			p.API.LogInfo("Fetching block from the filestore", "ulid", meta.ULID, "Max Time", metaMax.String())
 
-			err = copyFromFileStore(dumpDir, b, p.fileBackend)
+			err = copyFromFileStore(dumpDir, b, remoteStorageDir, p.fileBackend)
 			if err != nil {
 				p.API.LogError("Error during fetching the block", "ulid", meta.ULID, "err", err)
 			}

@@ -116,6 +116,10 @@ func (c *configuration) IsValid() error {
 	if *c.BodySizeLimitBytes < 100 {
 		return errors.New("openmetrics body size is not realistic, should be greater than 100 bytes")
 	}
+	if *c.RetentionDurationDays < 1 {
+		// it is the retention of the local tsdb too, where 0 disables the retention
+		return errors.New("retention duration should be at least one day")
+	}
 	if *c.SupportPacketMetricsDays < 1 {
 		return errors.New("at least one day of metrics should be included to the support packet")
 	}
